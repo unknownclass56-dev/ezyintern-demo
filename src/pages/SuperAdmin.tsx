@@ -1,0 +1,1524 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Papa from "papaparse";
+import { SiteNav } from "@/components/SiteNav";
+import { SiteFooter } from "@/components/SiteFooter";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { 
+  Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, 
+  Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, 
+  Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, 
+  ToggleRight, TrendingUp, Activity, DollarSign
+} from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+
+const SuperAdmin = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [allowed, setAllowed] = useState(false);
+
+  // Data
+  const [students, setStudents] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [unis, setUnis] = useState<any[]>([]);
+  const [colleges, setColleges] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [certs, setCerts] = useState<any[]>([]);
+  const [domains, setDomains] = useState<any[]>([]);
+  const [classesList, setClassesList] = useState<any[]>([]);
+  const [systemSettings, setSystemSettings] = useState<any[]>([]);
+  const [adminPermissions, setAdminPermissions] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [cancelledPayments, setCancelledPayments] = useState<any[]>([]);
+  const [paymentConfig, setPaymentConfig] = useState<any>(null);
+
+  // Selection & Filters
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [domainFilter, setDomainFilter] = useState("all");
+
+  // Pagination
+  const [studentPage, setStudentPage] = useState(0);
+  const [studentTotalCount, setStudentTotalCount] = useState(0);
+  const [isStudentsLoading, setIsStudentsLoading] = useState(false);
+  const pageSize = 20;
+
+  // Dialog States
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [isPermsDialogOpen, setIsPermsDialogOpen] = useState(false);
+  const [selectedAdminForPerms, setSelectedAdminForPerms] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [processing, setProcessing] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [resetOptions, setResetOptions] = useState({
+    students: true,
+    payments: true,
+    leads: true,
+    certs: true,
+    classes: false,
+    institutions: false,
+    domains: false
+  });
+
+  // Form States
+  const [staffEmail, setStaffEmail] = useState("");
+  const [certProgram, setCertProgram] = useState("Web Development");
+  const [certDuration, setCertDuration] = useState("3 Months");
+
+  // CRUD States
+  const [newUni, setNewUni] = useState("");
+  const [newCollege, setNewCollege] = useState("");
+  const [collegeUni, setCollegeUni] = useState("");
+  const [newDept, setNewDept] = useState("");
+  const [deptCollege, setDeptCollege] = useState("");
+  const [newDomain, setNewDomain] = useState("");
+
+  // Class Scheduler States
+  const [newClassTitle, setNewClassTitle] = useState("");
+  const [newClassType, setNewClassType] = useState("youtube");
+  const [newClassUrl, setNewClassUrl] = useState("");
+  const [newClassSchedule, setNewClassSchedule] = useState("");
+  const [newClassDomain, setNewClassDomain] = useState("all");
+
+  const fetchStudents = async () => {
+    setIsStudentsLoading(true);
+    try {
+      let query = supabase
+        .from("students")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (searchTerm) {
+        query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+      }
+      if (domainFilter !== "all") {
+        query = query.eq("internship_domain", domainFilter);
+      }
+      if (dateFilter) {
+        query = query.gte("created_at", `${dateFilter}T00:00:00`).lte("created_at", `${dateFilter}T23:59:59`);
+      }
+
+      const from = studentPage * pageSize;
+      const to = from + pageSize - 1;
+      
+      const { data, count, error } = await query.range(from, to);
+      
+      if (error) throw error;
+
+      // Filter out super admins if any (though they shouldn't be in students table normally)
+      const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "super_admin");
+      const superAdminIds = (roles || []).map(r => r.user_id);
+      
+      setStudents((data || []).filter(student => !superAdminIds.includes(student.id)));
+      setStudentTotalCount(count || 0);
+    } catch (err) {
+      console.error("Fetch Students Error:", err);
+      toast.error("Failed to load students");
+    } finally {
+      setIsStudentsLoading(false);
+    }
+  };
+
+  const loadAll = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Fetch only admin/super_admin roles and their profiles
+      const { data: adminRoles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+      
+      if (rolesError) throw rolesError;
+
+      const staffUserIds = (adminRoles || [])
+        .filter(r => r.role === 'admin' || r.role === 'super_admin')
+        .map(r => r.user_id);
+
+      const [p, u, c, de, ce, dm, cl, ss, ap, pc, ps, pcan] = await Promise.all([
+        supabase.from("profiles").select("*").in("id", staffUserIds),
+        supabase.from("universities").select("*").order("name"),
+        supabase.from("colleges").select("*, universities(name)").order("name"),
+        supabase.from("departments").select("*").order("name"),
+        supabase.from("certificates").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("internship_domains").select("*").order("name"),
+        supabase.from("classes").select("*, internship_domains(name)").order("scheduled_at", { ascending: true }),
+        supabase.from("system_settings").select("*"),
+        supabase.from("admin_permissions").select("*"),
+        supabase.from("payment_config").select("*").eq("id", 1).maybeSingle(),
+        supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(100),
+      ]);
+
+      const rolesMap = (adminRoles || []).reduce((acc: any, curr: any) => {
+        if (!acc[curr.user_id]) acc[curr.user_id] = [];
+        acc[curr.user_id].push(curr.role);
+        return acc;
+      }, {});
+
+      // Staff list (Admins & Super Admins)
+      const staffList = (p.data || []).map(prof => ({ 
+        ...prof, 
+        roles: rolesMap[prof.id] || [] 
+      }));
+
+      setStaff(staffList);
+      setUnis(u.data || []);
+      setColleges(c.data || []);
+      setDepartments(de.data || []);
+      setCerts(ce.data || []);
+      setDomains(dm.data || []);
+      setClassesList(cl.data || []);
+      setSystemSettings(ss.data || []);
+      setAdminPermissions(ap.data || []);
+      setPaymentConfig(pc.data || { id: 1, razorpay_key_id: '', razorpay_key_secret: '', amount_paise: 9900, is_active: false });
+      setPayments(ps.data || []);
+      setCancelledPayments(pcan.data || []);
+
+      // Initial students fetch
+      await fetchStudents();
+    } catch (err) {
+      console.error("Load Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (allowed) {
+      fetchStudents();
+    }
+  }, [studentPage, searchTerm, domainFilter, dateFilter]);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { navigate("/login"); return; }
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id);
+      const isSuper = (roles || []).some((r: any) => r.role === "super_admin");
+      setAllowed(isSuper);
+      if (isSuper) await loadAll();
+      else navigate("/admin");
+    })();
+  }, [navigate]);
+
+  // Bulk Actions
+  const handleBulkCertificate = async () => {
+    if (selectedStudents.length === 0) return toast.error("Select at least one student");
+    setProcessing(true);
+    try {
+      const issues = selectedStudents.map(id => {
+        const s = students.find(x => x.id === id);
+        const certId = s.registration_id || `EZY-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        return {
+          user_id: id,
+          student_name: s.full_name,
+          internship_name: certProgram,
+          duration: certDuration,
+          certificate_id: certId,
+          status: "Active"
+        };
+      });
+
+      const { error } = await supabase.from("certificates").insert(issues);
+      if (error) throw error;
+
+      toast.success(`Successfully generated ${selectedStudents.length} certificates!`);
+      setSelectedStudents([]);
+      loadAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedStudents(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedStudents.length === filteredStudents.length && filteredStudents.length > 0) setSelectedStudents([]);
+    else setSelectedStudents(filteredStudents.map(s => s.id));
+  };
+
+  // Actions
+  const toggleBlock = async (user: any) => {
+    const newStatus = user.status === "Blocked" ? "Active" : "Blocked";
+    await supabase.from("students").update({ status: newStatus }).eq("id", user.id);
+    toast.success(`User ${newStatus}`);
+    loadAll();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure?")) return;
+    await supabase.from("students").delete().eq("id", id);
+    toast.success("Deleted");
+    loadAll();
+  };
+
+
+  // CRUD for Domains/Unis
+  const addDomain = async () => {
+    if (!newDomain.trim()) return;
+    await supabase.from("internship_domains").insert({ name: newDomain.trim() });
+    setNewDomain(""); loadAll();
+  };
+
+  const delDomain = async (id: string) => {
+    if (!confirm("Delete domain?")) return;
+    await supabase.from("internship_domains").delete().eq("id", id);
+    loadAll();
+  };
+
+  const addUni = async () => {
+    if (!newUni.trim()) return;
+    const logo = prompt("Enter University Logo URL (optional):") || "";
+    await supabase.from("universities").insert({ name: newUni.trim(), logo_url: logo });
+    setNewUni(""); loadAll();
+  };
+
+  const delUni = async (id: string) => {
+    if (!confirm("Delete university?")) return;
+    await supabase.from("universities").delete().eq("id", id);
+    loadAll();
+  };
+
+  const addCollege = async () => {
+    if (!newCollege.trim() || !collegeUni) return toast.error("Enter name and select university");
+    await supabase.from("colleges").insert({ name: newCollege.trim(), university_id: collegeUni });
+    setNewCollege(""); loadAll();
+    toast.success("College added");
+  };
+
+  const delCollege = async (id: string) => {
+    await supabase.from("colleges").delete().eq("id", id);
+    toast.success("College removed");
+    loadAll();
+  };
+
+  const addDept = async () => {
+    if (!newDept || !deptCollege) return;
+    const { error } = await supabase.from("departments").insert({ name: newDept, college_id: deptCollege });
+    if (error) toast.error("Error adding department");
+    else {
+      setNewDept("");
+      toast.success("Department added");
+      loadAll();
+    }
+  };
+
+  const delDept = async (id: string) => {
+    await supabase.from("departments").delete().eq("id", id);
+    toast.success("Department removed");
+    loadAll();
+  };
+
+  const resetPlatformData = async () => {
+    if (resetConfirmText !== "RESET") {
+      toast.error("Please type RESET to confirm");
+      return;
+    }
+    
+    setProcessing(true);
+    try {
+      const tasks = [];
+      if (resetOptions.payments) tasks.push(supabase.from("payment_success").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+      if (resetOptions.leads) tasks.push(supabase.from("payment_cancelled").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+      if (resetOptions.certs) tasks.push(supabase.from("certificates").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+      if (resetOptions.students) tasks.push(supabase.from("students").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+      if (resetOptions.classes) tasks.push(supabase.from("classes").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+      if (resetOptions.institutions) {
+        tasks.push(supabase.from("departments").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+        tasks.push(supabase.from("colleges").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+        tasks.push(supabase.from("universities").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+      }
+      if (resetOptions.domains) tasks.push(supabase.from("internship_domains").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+      
+      await Promise.all(tasks);
+      
+      toast.success("Selected data has been reset");
+      setIsResetDialogOpen(false);
+      setResetConfirmText("");
+      loadAll();
+    } catch (err) {
+      toast.error("Failed to reset data");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleBulkCollegeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!collegeUni) {
+      toast.error("Please select a University from the dropdown first!");
+      e.target.value = "";
+      return;
+    }
+
+    const selectedUniName = unis.find(u => u.id === collegeUni)?.name || "selected university";
+    toast.info(`Uploading to ${selectedUniName}...`);
+
+    setProcessing(true);
+    Papa.parse(file, {
+      header: false,
+      skipEmptyLines: 'greedy',
+      complete: async (results) => {
+        try {
+          const rows = results.data as string[][];
+          if (!rows || rows.length === 0) {
+            toast.error("The CSV file appears to be empty.");
+            return;
+          }
+
+          const collegeNames = rows
+            .map(r => r[0])
+            .filter(n => n && n.trim() && !n.toLowerCase().includes("college name") && !n.toLowerCase().includes("university"));
+          
+          if (collegeNames.length === 0) {
+            toast.error("No valid college names found. Make sure the first column contains the names.");
+            return;
+          }
+
+          const inserts = collegeNames.map(name => ({
+            name: name.trim(),
+            university_id: collegeUni
+          }));
+
+          const { error, data } = await supabase.from("colleges").insert(inserts).select();
+          
+          if (error) {
+            console.error("Supabase Insert Error:", error);
+            throw error;
+          }
+
+          toast.success(`Successfully added ${collegeNames.length} colleges to ${selectedUniName}!`);
+          await loadAll();
+        } catch (err: any) {
+          console.error("Bulk Upload Error:", err);
+          toast.error("Upload failed: " + (err.message || "Unknown error"));
+        } finally {
+          setProcessing(false);
+          if (e.target) e.target.value = ""; 
+        }
+      },
+      error: (err) => {
+        console.error("PapaParse Error:", err);
+        toast.error("Failed to parse CSV: " + err.message);
+        setProcessing(false);
+      }
+    });
+  };
+
+  const handleLogoUpload = async (file: File, uniId: string) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${uniId}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('logos')
+        .getPublicUrl(filePath);
+
+      await supabase.from("universities").update({ logo_url: publicUrl }).eq("id", uniId);
+      toast.success("Logo uploaded!");
+      loadAll();
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    }
+  };
+
+  const editUni = async (u: any) => {
+    const newName = prompt("Enter new name:", u.name);
+    if (newName !== null) {
+      await supabase.from("universities").update({ name: newName }).eq("id", u.id);
+      loadAll();
+    }
+  };
+
+  // Filtering Logic (Now handled server-side, but keeping for compatibility if needed)
+  const filteredStudents = students;
+
+  // Class Logic
+  const addClass = async () => {
+    if (!newClassTitle || !newClassUrl || !newClassSchedule) return toast.error("Please fill all required fields");
+    try {
+      await supabase.from("classes").insert({
+        title: newClassTitle,
+        link_type: newClassType,
+        url: newClassUrl,
+        scheduled_at: new Date(newClassSchedule).toISOString(),
+        domain_id: newClassDomain === "all" ? null : newClassDomain
+      });
+      toast.success("Class Scheduled!");
+      setNewClassTitle(""); setNewClassUrl(""); setNewClassSchedule("");
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const delClass = async (id: string) => {
+    if (!confirm("Delete this scheduled class?")) return;
+    await supabase.from("classes").delete().eq("id", id);
+    toast.success("Class deleted");
+    loadAll();
+  };
+
+  const toggleClassActive = async (cl: any) => {
+    const newStatus = !cl.is_active;
+    await supabase.from("classes").update({ is_active: newStatus }).eq("id", cl.id);
+    toast.success(newStatus ? "Class enabled — students can now see it" : "Class disabled — hidden from students");
+    loadAll();
+  };
+
+  const handleAddStaff = async () => {
+    if (!staffEmail) return toast.error("Enter an email");
+    try {
+      const { data: user } = await supabase.from("profiles").select("id").eq("email", staffEmail).maybeSingle();
+      if (!user) return toast.error("User not found in platform");
+      
+      await supabase.from("user_roles").insert({ user_id: user.id, role: 'admin' });
+      toast.success("Staff access granted!");
+      setStaffEmail("");
+      setIsAddStaffOpen(false);
+      loadAll();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const removeStaff = async (id: string) => {
+    if (!confirm("Remove this person from staff?")) return;
+    await supabase.from("user_roles").delete().eq("user_id", id).eq("role", "admin");
+    toast.success("Staff access revoked");
+    loadAll();
+  };
+
+  const toggleAdminPermission = async (userId: string, permKey: string, currentVal: boolean) => {
+    try {
+      const newVal = !currentVal;
+      const { data: existing } = await supabase.from("admin_permissions").select("id").eq("user_id", userId).maybeSingle();
+      
+      if (existing) {
+        await supabase.from("admin_permissions").update({ [permKey]: newVal }).eq("user_id", userId);
+      } else {
+        await supabase.from("admin_permissions").insert({ user_id: userId, [permKey]: newVal });
+      }
+      loadAll();
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const savePaymentConfig = async () => {
+    try {
+      const { error } = await supabase.from("payment_config").upsert({
+        id: 1,
+        razorpay_key_id: paymentConfig.razorpay_key_id,
+        razorpay_key_secret: paymentConfig.razorpay_key_secret,
+        amount_paise: paymentConfig.amount_paise,
+        is_active: paymentConfig.is_active,
+        updated_at: new Date().toISOString()
+      });
+      if (error) throw error;
+      toast.success("Payment configuration saved!");
+      loadAll();
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const toggleSystemSetting = async (key: string, current: boolean) => {
+    const { error } = await supabase.from("system_settings").update({ is_enabled: !current }).eq("key", key);
+    if (error) toast.error("Update failed");
+    else {
+      toast.success(`${key.replace('_', ' ')} toggled`);
+      loadAll();
+    }
+  };
+
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="size-8 animate-spin text-primary" /></div>;
+  if (!allowed) return <div className="p-10 text-center">Access Denied</div>;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <SiteNav />
+      <main className="flex-1 py-8">
+        <div className="container mx-auto px-4">
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="hero" className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Super Admin</Badge>
+              </div>
+              <h1 className="text-4xl font-black tracking-tighter">Super Dashboard</h1>
+              <p className="text-muted-foreground">Master Control & Global Infrastructure Management</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" className="gap-2 shadow-soft" onClick={() => navigate("/register")}><UserPlus className="size-4" /> Add Student</Button>
+              <Button variant="hero" className="gap-2 shadow-glow" onClick={() => setIsAddStaffOpen(true)}><Shield className="size-4" /> Add Admin</Button>
+            </div>
+          </div>
+
+          {/* Analytics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <Card className="p-5 border-none shadow-elegant bg-gradient-to-br from-primary/10 to-transparent">
+              <div className="flex items-center justify-between mb-2">
+                <div className="size-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary"><Users className="size-5" /></div>
+                <Badge variant="outline" className="text-[10px]">+12%</Badge>
+              </div>
+              <div className="text-2xl font-black">{students.length}</div>
+              <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total Interns</div>
+            </Card>
+            <Card className="p-5 border-none shadow-elegant bg-gradient-to-br from-green-500/10 to-transparent">
+              <div className="flex items-center justify-between mb-2">
+                <div className="size-10 rounded-xl bg-green-500/20 flex items-center justify-center text-green-600"><Activity className="size-5" /></div>
+                <Badge variant="outline" className="text-[10px] text-green-600">Live</Badge>
+              </div>
+              <div className="text-2xl font-black">{classesList.filter(c => c.is_active !== false).length}</div>
+              <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Active Classes</div>
+            </Card>
+            <Card className="p-5 border-none shadow-elegant bg-gradient-to-br from-orange-500/10 to-transparent">
+              <div className="flex items-center justify-between mb-2">
+                <div className="size-10 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-600"><Award className="size-5" /></div>
+                <Badge variant="outline" className="text-[10px]">Verified</Badge>
+              </div>
+              <div className="text-2xl font-black">{certs.length}</div>
+              <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Certs Issued</div>
+            </Card>
+            <Card className="p-5 border-none shadow-elegant bg-gradient-to-br from-purple-500/10 to-transparent">
+              <div className="flex items-center justify-between mb-2">
+                <div className="size-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-600"><Shield className="size-5" /></div>
+                <Badge variant="outline" className="text-[10px]">{staff.length} Active</Badge>
+              </div>
+              <div className="text-2xl font-black">{staff.length}</div>
+              <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Staff Members</div>
+            </Card>
+          </div>
+
+          <Tabs defaultValue="students" className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <TabsList className="bg-muted/50 p-1 flex-wrap h-auto self-start">
+                <TabsTrigger value="students" className="gap-2"><Users className="size-4" /> Students</TabsTrigger>
+                <TabsTrigger value="bulk" className="gap-2"><Award className="size-4" /> Certification</TabsTrigger>
+                <TabsTrigger value="classes" className="gap-2"><BookOpen className="size-4" /> Live Classes</TabsTrigger>
+                <TabsTrigger value="institutions" className="gap-2"><Building2 className="size-4" /> Institutions</TabsTrigger>
+                <TabsTrigger value="payments" className="gap-2"><DollarSign className="size-4" /> Transactions</TabsTrigger>
+                <TabsTrigger value="leads" className="gap-2"><UserPlus className="size-4" /> Leads</TabsTrigger>
+                <TabsTrigger value="staff" className="gap-2"><Shield className="size-4" /> Staff</TabsTrigger>
+                <TabsTrigger value="settings" className="gap-2"><Building2 className="size-4" /> Settings</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="students" className="space-y-6">
+              <Card className="p-6 border-none shadow-elegant bg-card/50 backdrop-blur-sm">
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search by name or email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                  <Select value={domainFilter} onValueChange={setDomainFilter}>
+                    <SelectTrigger className="gap-2"><Briefcase className="size-4" /><SelectValue placeholder="All Domains" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">All Domains</SelectItem>{domains.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input type="date" className="pl-9" value={dateFilter} onChange={e => setDateFilter(e.target.value)} /></div>
+                  <Button variant="outline" className="gap-2" onClick={() => { setSearchTerm(""); setDateFilter(""); setDomainFilter("all"); }}><Filter className="size-4" /> Clear Filters</Button>
+                </div>
+              </Card>
+
+              <Card className="overflow-hidden border-none shadow-elegant">
+                <Table>
+                  <TableHeader className="bg-muted/30"><TableRow>
+                    <TableHead className="w-10"><Checkbox checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Domain</TableHead>
+                    <TableHead>Institution</TableHead>
+                    <TableHead>Joined Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {isStudentsLoading ? (
+                      <TableRow><TableCell colSpan={6} className="text-center py-20"><Loader2 className="size-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    ) : (
+                      <>
+                        {filteredStudents.map(s => (
+                          <TableRow key={s.id} className="group hover:bg-muted/20 transition-colors">
+                            <TableCell><Checkbox checked={selectedStudents.includes(s.id)} onCheckedChange={() => toggleSelect(s.id)} /></TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="size-9 rounded-xl bg-primary/10 flex items-center justify-center font-bold text-primary text-xs shadow-inner">{s.full_name?.charAt(0)}</div>
+                                <div><div className="font-bold text-sm tracking-tight">{s.full_name}</div><div className="text-[10px] text-muted-foreground">{s.email}</div></div>
+                              </div>
+                            </TableCell>
+                            <TableCell><Badge variant="secondary" className="text-[9px] uppercase font-bold px-2 py-0.5">{s.internship_domain || "Unassigned"}</Badge></TableCell>
+                            <TableCell><div className="text-xs font-medium text-slate-600">{s.college_name || "—"}</div></TableCell>
+                            <TableCell className="text-xs text-muted-foreground font-medium">{new Date(s.created_at).toLocaleDateString()}</TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="size-8 p-0"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 shadow-elegant p-1">
+                                  <DropdownMenuItem onClick={() => { setSelectedUser(s); setIsViewDialogOpen(true); }} className="gap-2 py-2 px-3"><Eye className="size-4" /> View Details</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => toggleBlock(s)} className={`gap-2 py-2 px-3 ${s.status === "Blocked" ? "text-green-600" : "text-destructive"}`}>
+                                    {s.status === "Blocked" ? <CheckCircle2 className="size-4" /> : <Ban className="size-4" />} {s.status === "Blocked" ? "Unblock" : "Block"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDelete(s.id)} className="gap-2 py-2 px-3 text-destructive"><Trash2 className="size-4" /> Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredStudents.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-medium italic">No interns found matching your filters.</TableCell></TableRow>}
+                      </>
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination Controls */}
+                <div className="p-4 bg-muted/10 border-t flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="text-xs text-muted-foreground font-medium">
+                    Showing {studentTotalCount === 0 ? 0 : studentPage * pageSize + 1} to {Math.min(studentTotalCount, (studentPage + 1) * pageSize)} of {studentTotalCount} students
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      disabled={studentPage === 0 || isStudentsLoading}
+                      onClick={() => setStudentPage(p => p - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.ceil(studentTotalCount / pageSize) }, (_, i) => i)
+                        .filter(pageNum => {
+                          const totalPages = Math.ceil(studentTotalCount / pageSize);
+                          if (totalPages <= 7) return true;
+                          return Math.abs(pageNum - studentPage) <= 2 || pageNum === 0 || pageNum === totalPages - 1;
+                        })
+                        .map((pageNum, i, arr) => (
+                          <div key={pageNum} className="flex items-center gap-1">
+                            {i > 0 && pageNum - arr[i-1] > 1 && <span className="text-muted-foreground px-1 text-xs">...</span>}
+                            <Button
+                              variant={studentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              className="size-8 p-0"
+                              onClick={() => setStudentPage(pageNum)}
+                              disabled={isStudentsLoading}
+                            >
+                              {pageNum + 1}
+                            </Button>
+                          </div>
+                        ))
+                      }
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      disabled={(studentPage + 1) * pageSize >= studentTotalCount || isStudentsLoading}
+                      onClick={() => setStudentPage(p => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="bulk" className="space-y-6">
+              <div className="grid lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-primary/5 to-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-10 opacity-5 -rotate-12 pointer-events-none"><Award className="size-40" /></div>
+                    <h3 className="text-xl font-black mb-6 flex items-center gap-2"><Award className="size-6 text-primary" /> Certificate Engine</h3>
+                    <div className="grid md:grid-cols-2 gap-6 mb-8">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase text-muted-foreground">Internship Program</Label>
+                        <Select value={certProgram} onValueChange={setCertProgram}>
+                          <SelectTrigger className="bg-white/50 backdrop-blur-sm h-11"><SelectValue placeholder="Select Domain" /></SelectTrigger>
+                          <SelectContent>
+                            {domains.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase text-muted-foreground">Program Duration</Label>
+                        <Input value={certDuration} onChange={e => setCertDuration(e.target.value)} placeholder="e.g. 3 Months" className="bg-white/50 backdrop-blur-sm h-11" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-6 bg-white/80 rounded-2xl border border-primary/20 shadow-soft">
+                      <div><p className="text-lg font-black tracking-tight">{selectedStudents.length} Students Selected</p><p className="text-xs text-muted-foreground font-medium">Digital certificates will be issued and verified instantly.</p></div>
+                      <Button variant="hero" size="lg" className="gap-2 px-8 shadow-glow" disabled={processing || selectedStudents.length === 0} onClick={handleBulkCertificate}>
+                        {processing ? <Loader2 className="size-5 animate-spin" /> : <CheckCircle2 className="size-5" />} Issue Now
+                      </Button>
+                    </div>
+                  </Card>
+
+                  <Card className="overflow-hidden border-none shadow-elegant">
+                    <div className="p-4 bg-muted/20 border-b flex justify-between items-center">
+                      <h3 className="font-bold text-sm">Selection List</h3>
+                      <div className="relative w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" /><Input className="pl-8 h-8 text-xs bg-white/50" placeholder="Search students..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                    </div>
+                    <ScrollArea className="h-[400px]">
+                      <Table>
+                        <TableHeader><TableRow><TableHead className="w-10"><Checkbox checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onCheckedChange={toggleSelectAll} /></TableHead><TableHead>Student</TableHead><TableHead>Domain</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {filteredStudents.map(s => (
+                            <TableRow key={s.id} className={`transition-colors ${selectedStudents.includes(s.id) ? "bg-primary/5" : ""}`}>
+                              <TableCell><Checkbox checked={selectedStudents.includes(s.id)} onCheckedChange={() => toggleSelect(s.id)} /></TableCell>
+                              <TableCell className="font-bold text-xs tracking-tight">{s.full_name}</TableCell>
+                              <TableCell className="text-[10px] font-black text-muted-foreground uppercase">{s.internship_domain}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  <Card className="p-6 border-none shadow-elegant">
+                    <h4 className="font-black text-sm uppercase tracking-widest text-muted-foreground mb-4">Registry Feed</h4>
+                    <ScrollArea className="h-[550px] pr-2">
+                      <div className="space-y-3">
+                        {certs.slice(0, 15).map(c => (
+                          <div key={c.id} className="p-4 border border-border/50 bg-muted/10 rounded-2xl hover:bg-muted/30 transition-colors group">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="font-bold text-sm group-hover:text-primary transition-colors">{c.student_name}</div>
+                              <Badge variant="outline" className="text-[8px] px-1 h-4">{c.status}</Badge>
+                            </div>
+                            <div className="text-[10px] font-medium text-muted-foreground flex justify-between items-center">
+                              <span className="flex items-center gap-1"><Shield className="size-3" /> {c.certificate_id}</span>
+                              <span>{new Date(c.created_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="classes" className="space-y-6">
+              <div className="grid lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 space-y-6">
+                  <Card className="p-6 border-none shadow-elegant bg-gradient-to-br from-slate-50 to-white">
+                    <h3 className="text-xl font-black mb-6 flex items-center gap-2"><BookOpen className="size-6 text-primary" /> Class Orchestrator</h3>
+                    <div className="space-y-5">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase">Target Audience</Label>
+                        <Select value={newClassDomain} onValueChange={setNewClassDomain}>
+                          <SelectTrigger className="h-11 bg-white shadow-soft"><SelectValue placeholder="Target Audience" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Universal (All Domains)</SelectItem>
+                            {domains.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase">Platform Delivery</Label>
+                        <Select value={newClassType} onValueChange={setNewClassType}>
+                          <SelectTrigger className="h-11 bg-white shadow-soft"><SelectValue placeholder="Platform" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="youtube">YouTube Embed (Livestream)</SelectItem>
+                            <SelectItem value="meet">Interactive Meet (Google/Zoom)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase">Session Topic</Label>
+                        <Input value={newClassTitle} onChange={e => setNewClassTitle(e.target.value)} placeholder="e.g. Masterclass on Node.js" className="h-11 bg-white shadow-soft" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase">Access Link URL</Label>
+                        <Input value={newClassUrl} onChange={e => setNewClassUrl(e.target.value)} placeholder="https://..." className="h-11 bg-white shadow-soft" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase">Schedule Timeline</Label>
+                        <Input type="datetime-local" value={newClassSchedule} onChange={e => setNewClassSchedule(e.target.value)} className="h-11 bg-white shadow-soft" />
+                      </div>
+
+                      <Button className="w-full h-11 gap-2 mt-4 shadow-elegant font-bold" onClick={addClass}><Calendar className="size-4" /> Deploy Session</Button>
+                    </div>
+                  </Card>
+                </div>
+
+                <div className="lg:col-span-2">
+                  <Card className="overflow-hidden border-none shadow-elegant h-full bg-card/50 backdrop-blur-sm">
+                    <div className="p-5 bg-muted/20 border-b flex justify-between items-center">
+                      <h3 className="font-black text-sm uppercase tracking-wider">Scheduled Deployment Feed</h3>
+                      <Badge variant="hero" className="rounded-md font-bold">{classesList.length} Sessions</Badge>
+                    </div>
+                    <ScrollArea className="h-[550px]">
+                      {classesList.length === 0 ? (
+                        <div className="p-20 text-center text-muted-foreground flex flex-col items-center gap-4">
+                          <Activity className="size-12 opacity-10" />
+                          <p className="font-medium">No sessions scheduled on the grid.</p>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader><TableRow><TableHead className="uppercase text-[10px] font-black">Timeline</TableHead><TableHead className="uppercase text-[10px] font-black">Topic</TableHead><TableHead className="uppercase text-[10px] font-black">Segment</TableHead><TableHead className="uppercase text-[10px] font-black">Status</TableHead><TableHead className="text-right uppercase text-[10px] font-black">Actions</TableHead></TableRow></TableHeader>
+                          <TableBody>
+                            {classesList.map(cl => (
+                              <TableRow key={cl.id} className={`group hover:bg-muted/30 transition-colors ${!cl.is_active ? "opacity-50 grayscale" : ""}`}>
+                                <TableCell className="whitespace-nowrap font-bold text-xs text-slate-700">
+                                  {new Date(cl.scheduled_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                </TableCell>
+                                <TableCell className="font-black tracking-tight">{cl.title}</TableCell>
+                                <TableCell><Badge variant="outline" className="text-[9px] uppercase font-bold tracking-tighter">{cl.internship_domains?.name || "Global"}</Badge></TableCell>
+                                <TableCell>
+                                  {cl.is_active !== false ? (
+                                    <Badge className="bg-green-500 text-white text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5">Live</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 text-muted-foreground">Paused</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => toggleClassActive(cl)}
+                                      className={`size-8 p-0 rounded-lg transition-colors ${cl.is_active !== false ? "text-green-600 hover:bg-green-50" : "text-slate-400 hover:bg-slate-100"}`}
+                                    >
+                                      {cl.is_active !== false ? <ToggleRight className="size-5" /> : <ToggleLeft className="size-5" />}
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="size-8 p-0 text-destructive hover:bg-destructive/10 rounded-lg" onClick={() => delClass(cl.id)}><Trash2 className="size-4" /></Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </ScrollArea>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="settings" className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-indigo-50/50 to-white">
+                  <h3 className="text-lg font-black mb-6 flex items-center gap-2"><Briefcase className="size-5 text-indigo-600" /> Professional Domains</h3>
+                  <div className="flex gap-3 mb-6">
+                    <Input value={newDomain} onChange={e => setNewDomain(e.target.value)} placeholder="Domain Name (e.g. AI & ML)..." className="h-11 bg-white shadow-soft" />
+                    <Button variant="hero" className="h-11 w-11 p-0 shadow-glow" onClick={addDomain}><Plus className="size-5" /></Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2.5">
+                    {domains.map(d => (
+                      <Badge key={d.id} variant="secondary" className="pl-4 pr-1.5 py-1.5 gap-3 rounded-xl border border-border/50 bg-white shadow-soft font-bold text-slate-700">
+                        {d.name} 
+                        <Button size="sm" variant="ghost" className="size-5 p-0 h-auto text-destructive hover:bg-destructive/10 rounded-lg" onClick={() => delDomain(d.id)}><Trash2 className="size-3" /></Button>
+                      </Badge>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-red-50/50 to-white">
+                  <h3 className="text-lg font-black mb-6 flex items-center gap-2"><Shield className="size-5 text-red-600" /> Service Access Control</h3>
+                  <p className="text-xs text-muted-foreground mb-6 font-medium">Disable services platform-wide. This affects both Admins and Students.</p>
+                  
+                  <div className="space-y-4">
+                    {systemSettings.map(s => (
+                      <div key={s.key} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 shadow-soft">
+                        <div className="flex items-center gap-3">
+                          <div className={`size-8 rounded-lg flex items-center justify-center ${s.is_enabled ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                            {s.key === 'live_classes' && <BookOpen className="size-4" />}
+                            {s.key === 'certificates' && <Award className="size-4" />}
+                            {s.key === 'bulk_certification' && <Shield className="size-4" />}
+                            {s.key === 'internship_registration' && <UserPlus className="size-4" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold capitalize">{s.key.replace('_', ' ')}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium">{s.is_enabled ? 'Service is Active' : 'Service is Disabled'}</p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => toggleSystemSetting(s.key, s.is_enabled)}
+                          className={s.is_enabled ? "text-green-600" : "text-red-600"}
+                        >
+                          {s.is_enabled ? <ToggleRight className="size-8" /> : <ToggleLeft className="size-8" />}
+                        </Button>
+                      </div>
+                    ))}
+                    {systemSettings.length === 0 && (
+                      <div className="p-10 text-center border-2 border-dashed border-slate-200 rounded-2xl text-muted-foreground text-xs font-bold">
+                        No settings found in database.
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-orange-50/50 to-white md:col-span-2 lg:col-span-1">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-black flex items-center gap-2"><DollarSign className="size-5 text-orange-600" /> Razorpay Integration</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">{paymentConfig?.is_active ? 'Active' : 'Disabled'}</span>
+                      <Button variant="ghost" size="sm" className="p-0 h-auto" onClick={() => updatePaymentConfig({ is_active: !paymentConfig?.is_active })}>
+                        {paymentConfig?.is_active ? <ToggleRight className="size-8 text-green-600" /> : <ToggleLeft className="size-8 text-slate-400" />}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground">Razorpay Key ID</Label>
+                      <Input 
+                        value={paymentConfig?.razorpay_key_id || ''} 
+                        onChange={e => setPaymentConfig({...paymentConfig, razorpay_key_id: e.target.value})}
+                        placeholder="rzp_live_..." 
+                        className="bg-white shadow-soft h-11"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground">Razorpay Key Secret</Label>
+                      <Input 
+                        type="password"
+                        value={paymentConfig?.razorpay_key_secret || ''} 
+                        onChange={e => setPaymentConfig({...paymentConfig, razorpay_key_secret: e.target.value})}
+                        placeholder="••••••••••••" 
+                        className="bg-white shadow-soft h-11"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Amount (INR)</Label>
+                        <Input 
+                          type="number"
+                          value={(paymentConfig?.amount_paise || 0) / 100} 
+                          onChange={e => setPaymentConfig({...paymentConfig, amount_paise: parseFloat(e.target.value) * 100})}
+                          className="bg-white shadow-soft h-11"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button variant="hero" className="w-full h-11 shadow-glow font-bold" onClick={() => updatePaymentConfig(paymentConfig)}>
+                          Save Gateway Settings
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground italic mt-2">Note: Key Secret is stored securely and never exposed to students.</p>
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="institutions" className="space-y-6">
+              <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-blue-50/50 to-white">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black flex items-center gap-2"><Building2 className="size-7 text-blue-600" /> Institution Network</h3>
+                    <p className="text-sm text-muted-foreground font-medium">Manage Universities and their affiliated Colleges</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge variant="hero" className="px-3 py-1">{unis.length} Universities</Badge>
+                    <Badge variant="secondary" className="px-3 py-1">{colleges.length} Colleges</Badge>
+                  </div>
+                </div>
+                
+                <div className="grid lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="space-y-4 p-6 bg-white/50 rounded-3xl shadow-soft border border-white/50">
+                      <div className="flex items-center gap-2 text-blue-600 mb-2">
+                        <Plus className="size-5" />
+                        <span className="text-xs font-black uppercase tracking-wider">New University</span>
+                      </div>
+                      <div className="flex gap-3">
+                        <Input value={newUni} onChange={e => setNewUni(e.target.value)} placeholder="University Full Title..." className="h-12 bg-white shadow-soft rounded-xl border-none" />
+                        <Button variant="hero" className="h-12 px-6 shadow-glow font-bold rounded-xl" onClick={addUni}>Add Uni</Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 p-6 bg-white/50 rounded-3xl shadow-soft border border-white/50">
+                      <div className="flex items-center gap-2 text-indigo-600 mb-2">
+                        <Plus className="size-5" />
+                        <span className="text-xs font-black uppercase tracking-wider">New Affiliated College</span>
+                      </div>
+                      <div className="space-y-3">
+                        <Select value={collegeUni} onValueChange={setCollegeUni}>
+                          <SelectTrigger className="h-12 bg-white shadow-soft rounded-xl border-none"><SelectValue placeholder="Select Parent University" /></SelectTrigger>
+                          <SelectContent className="rounded-xl border-none shadow-elegant">{unis.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <div className="flex gap-3">
+                          <Input value={newCollege} onChange={e => setNewCollege(e.target.value)} placeholder="College Name..." className="h-12 bg-white shadow-soft rounded-xl border-none" />
+                          <Button variant="hero" className="h-12 px-6 shadow-glow font-bold rounded-xl" onClick={addCollege}>Add College</Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 p-6 bg-white/50 rounded-3xl shadow-soft border border-white/50">
+                      <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                        <Plus className="size-5" />
+                        <span className="text-xs font-black uppercase tracking-wider">New Department</span>
+                      </div>
+                      <div className="space-y-3">
+                        <Select value={deptCollege} onValueChange={setDeptCollege}>
+                          <SelectTrigger className="h-12 bg-white shadow-soft rounded-xl border-none"><SelectValue placeholder="Select Parent College" /></SelectTrigger>
+                          <SelectContent className="rounded-xl border-none shadow-elegant">
+                            {unis.map(u => (
+                              <div key={u.id}>
+                                <div className="px-2 py-1.5 text-xs font-black bg-slate-50 text-slate-400 uppercase tracking-widest">{u.name}</div>
+                                {colleges.filter(c => c.university_id === u.id).map(c => (
+                                  <SelectItem key={c.id} value={c.id} className="pl-6">{c.name}</SelectItem>
+                                ))}
+                              </div>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-3">
+                          <Input value={newDept} onChange={e => setNewDept(e.target.value)} placeholder="Department Name..." className="h-12 bg-white shadow-soft rounded-xl border-none" />
+                          <Button variant="hero" className="h-12 px-6 shadow-glow font-bold rounded-xl" onClick={addDept}>Add Dept</Button>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div className="bg-white/40 rounded-3xl p-2 border border-white/50 shadow-inner">
+                    <ScrollArea className="h-[600px] px-4">
+                      <div className="space-y-6 py-4">
+                        {unis.map(u => (
+                          <div key={u.id} className="space-y-3">
+                            <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-blue-100 shadow-soft group hover:border-primary/40 transition-all">
+                              <div className="flex items-center gap-4">
+                                <div className="size-12 rounded-xl bg-slate-50 flex items-center justify-center shadow-inner overflow-hidden border border-slate-100">
+                                  {u.logo_url ? (
+                                    <img src={u.logo_url} className="size-full object-contain p-2" alt="" />
+                                  ) : (
+                                    <Building2 className="size-5 text-slate-300" />
+                                  )}
+                                </div>
+                                <div>
+                                  <span className="text-base font-black tracking-tight text-slate-800 block">{u.name}</span>
+                                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{colleges.filter(c => c.university_id === u.id).length} Colleges Affiliated</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Label htmlFor={`logo-${u.id}`} className="cursor-pointer">
+                                  <div className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black rounded-xl hover:bg-blue-100 transition-colors shadow-soft">
+                                    <Plus className="size-3" /> LOGO
+                                  </div>
+                                  <Input id={`logo-${u.id}`} type="file" className="hidden" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleLogoUpload(file, u.id); }} />
+                                </Label>
+                                <Button variant="ghost" size="sm" className="size-9 p-0 hover:bg-slate-100 rounded-xl" onClick={() => editUni(u)}><Edit className="size-4" /></Button>
+                                <Button variant="ghost" size="sm" className="size-9 p-0 text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => delUni(u.id)}><Trash2 className="size-4" /></Button>
+                              </div>
+                            </div>
+                            
+                            <div className="pl-10 space-y-2">
+                                  {colleges.filter(col => col.university_id === u.id).map(col => (
+                                    <div key={col.id} className="space-y-1">
+                                      <div className="flex items-center justify-between p-2.5 bg-white/80 rounded-2xl border border-slate-100 group shadow-sm">
+                                        <div className="flex items-center gap-2">
+                                          <div className="size-1.5 rounded-full bg-indigo-400" />
+                                          <span className="text-xs font-bold text-slate-700">{col.name}</span>
+                                        </div>
+                                        <Button variant="ghost" size="sm" className="size-8 p-0 text-destructive hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => delCollege(col.id)}><Trash2 className="size-3.5" /></Button>
+                                      </div>
+                                      <div className="pl-6 space-y-1 border-l-2 border-slate-100 ml-3 py-1">
+                                        {departments.filter(d => d.college_id === col.id).map(d => (
+                                          <div key={d.id} className="flex items-center justify-between p-2 bg-slate-50/50 rounded-xl group/dept border border-dashed border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/30 transition-colors">
+                                            <span className="text-[10px] font-medium text-slate-500">{d.name}</span>
+                                            <Button variant="ghost" size="sm" className="size-6 p-0 text-destructive opacity-0 group-hover/dept:opacity-100 transition-opacity" onClick={() => delDept(d.id)}><Trash2 className="size-3" /></Button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              {colleges.filter(col => col.university_id === u.id).length === 0 && (
+                                <div className="p-3 text-[10px] text-muted-foreground font-bold italic tracking-wider">No colleges added yet.</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+
+            <TabsContent value="staff" className="space-y-6">
+              <Card className="overflow-hidden border-none shadow-elegant bg-card/50 backdrop-blur-sm">
+                <div className="p-5 bg-muted/20 border-b flex justify-between items-center">
+                  <h3 className="font-black text-sm uppercase tracking-widest">Privileged Access List</h3>
+                  <Button variant="hero" size="sm" className="gap-2 font-bold px-4" onClick={() => setIsAddStaffOpen(true)}><Shield className="size-4" /> Grant Access</Button>
+                </div>
+                <Table>
+                  <TableHeader className="bg-muted/10"><TableRow><TableHead className="uppercase text-[10px] font-black">Staff Member</TableHead><TableHead className="uppercase text-[10px] font-black">Access Levels</TableHead><TableHead className="text-right uppercase text-[10px] font-black">Revocation</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {staff.map(s => (
+                      <TableRow key={s.id} className="hover:bg-muted/20 transition-colors">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="size-10 rounded-full bg-slate-900 flex items-center justify-center font-bold text-white text-xs">{s.full_name?.charAt(0)}</div>
+                            <div><div className="font-bold text-sm">{s.full_name}</div><div className="text-[10px] text-muted-foreground font-medium">{s.email}</div></div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1.5">
+                            {s.roles.map((r: string) => (
+                              <Badge key={r} variant={r === 'super_admin' ? 'hero' : 'outline'} className="text-[8px] font-black uppercase tracking-wider px-2 h-5">
+                                {r.replace('_', ' ')}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="sm" className="h-8 gap-2 font-bold hover:bg-slate-100" onClick={() => { setSelectedAdminForPerms(s); setIsPermsDialogOpen(true); }}>
+                              <Shield className="size-3.5" /> Permissions
+                            </Button>
+                            {s.roles.includes('super_admin') ? (
+                              <span className="text-[9px] font-bold text-muted-foreground italic px-3">PROTECTED</span>
+                            ) : (
+                              <Button variant="ghost" size="sm" className="size-8 p-0 text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => handleDelete(s.id)}><Trash2 className="size-4" /></Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="payments">
+              <div className="space-y-6">
+                <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-green-50/50 to-white">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2"><DollarSign className="size-6 text-green-600" /> Revenue Tracking</h3>
+                      <p className="text-xs text-muted-foreground font-medium">Monitoring all successful platform transactions</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-black text-green-600">₹{payments.reduce((acc, curr) => acc + (curr.amount || 0), 0) / 100}</div>
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Collection</div>
+                    </div>
+                  </div>
+
+                  <ScrollArea className="h-[500px] rounded-2xl border border-slate-100 bg-white/50 backdrop-blur-sm">
+                    <Table>
+                      <TableHeader className="bg-slate-50/50"><TableRow><TableHead>Date</TableHead><TableHead>Student</TableHead><TableHead>Payment ID</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Profile</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {payments.map(pay => (
+                          <TableRow key={pay.id} className="hover:bg-slate-50/50 transition-colors">
+                            <TableCell className="text-[10px] font-bold text-slate-500">{new Date(pay.created_at).toLocaleString()}</TableCell>
+                            <TableCell>
+                              <div className="font-black text-slate-800 text-sm">{pay.metadata?.full_name || pay.user_email}</div>
+                              <div className="text-[10px] text-muted-foreground font-medium">{pay.user_email} • {pay.metadata?.college || 'N/A'}</div>
+                            </TableCell>
+                            <TableCell><Badge variant="outline" className="text-[10px] font-mono bg-white">{pay.payment_id}</Badge></TableCell>
+                            <TableCell className="font-black text-slate-800">₹{pay.amount / 100}</TableCell>
+                            <TableCell><Badge className="bg-green-500 shadow-sm border-none text-[10px] uppercase font-black px-3 py-1">Captured</Badge></TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="size-8 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors" 
+                                onClick={() => {
+                                  const student = students.find(s => s.email === pay.user_email);
+                                  if (student) {
+                                    setSelectedUser(student);
+                                    setIsViewDialogOpen(true);
+                                  } else {
+                                    toast.error("Detailed profile not found");
+                                  }
+                                }}
+                              >
+                                <Eye className="size-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {payments.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground font-bold italic">No payment records found.</TableCell></TableRow>}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="leads">
+              <div className="space-y-6">
+                <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-indigo-50/50 to-white">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2"><UserPlus className="size-6 text-indigo-600" /> Lead Generation</h3>
+                      <p className="text-xs text-muted-foreground font-medium">Tracking students who initiated registration but failed payment</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-black text-indigo-600">{cancelledPayments.length}</div>
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Potential Leads</div>
+                    </div>
+                  </div>
+
+                  <ScrollArea className="h-[500px] rounded-2xl border border-slate-100 bg-white/50 backdrop-blur-sm">
+                    <Table>
+                      <TableHeader className="bg-slate-50/50"><TableRow><TableHead>Date</TableHead><TableHead>Lead Details</TableHead><TableHead>Potential Amount</TableHead><TableHead>Reason</TableHead><TableHead className="text-right">Follow-up</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {cancelledPayments.map(cp => (
+                          <TableRow key={cp.id} className="hover:bg-indigo-50/20 transition-colors">
+                            <TableCell className="text-[10px] font-bold text-slate-500">{new Date(cp.created_at).toLocaleString()}</TableCell>
+                            <TableCell>
+                              <div className="font-black text-slate-800 text-sm">{cp.metadata?.fullName || cp.user_email}</div>
+                              <div className="text-[10px] text-muted-foreground font-medium">{cp.user_email} • {cp.user_phone || 'No phone'}</div>
+                              <div className="mt-1 flex gap-1">
+                                <Badge variant="outline" className="text-[8px] font-black uppercase text-indigo-500 border-indigo-100">{cp.metadata?.college || 'No College'}</Badge>
+                                <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-400 border-slate-100">{cp.metadata?.course || 'No Course'}</Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-black text-slate-800">₹{(cp.amount || 0) / 100}</TableCell>
+                            <TableCell><Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none text-[10px] font-bold">{cp.reason}</Badge></TableCell>
+                            <TableCell className="text-right">
+                              <Button asChild variant="ghost" size="sm" className="size-9 p-0 rounded-full hover:bg-indigo-600 hover:text-white transition-all">
+                                <a href={`mailto:${cp.user_email}`}><Mail className="size-4" /></a>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {cancelledPayments.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-24 text-muted-foreground font-bold italic">Zero leads recorded.</TableCell></TableRow>}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="staff">
+              <Card className="p-8 border-none shadow-elegant bg-white/50 backdrop-blur-sm rounded-3xl">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Shield className="size-6 text-indigo-600" /> Administrative Council</h3>
+                    <p className="text-xs text-muted-foreground font-medium">Manage permissions and access for platform administrators</p>
+                  </div>
+                </div>
+                
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {staff.map(member => (
+                    <Card key={member.id} className="p-6 border-none shadow-soft bg-white group hover:shadow-elegant transition-all border-l-4 border-l-indigo-500">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="size-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-black">
+                          {member.full_name?.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="font-black text-slate-800 leading-none mb-1">{member.full_name}</div>
+                          <div className="text-[10px] text-muted-foreground font-medium">{member.email}</div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mb-6">
+                        {member.roles.map((role: string) => (
+                          <Badge key={role} variant="secondary" className="text-[8px] font-black uppercase tracking-widest">{role}</Badge>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-widest" onClick={() => {
+                          setSelectedAdminForPerms(member);
+                          setIsPermsDialogOpen(true);
+                        }}>Permissions</Button>
+                        <Button variant="ghost" size="sm" className="size-9 p-0 rounded-xl text-red-500 hover:bg-red-50" onClick={() => removeStaff(member.id)}><Trash2 className="size-4" /></Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="settings">
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-emerald-50/50 to-white">
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2"><DollarSign className="size-6 text-emerald-600" /> Payment Gateway</h3>
+                        <p className="text-xs text-muted-foreground font-medium">Razorpay API configuration</p>
+                      </div>
+                      <Badge className={paymentConfig?.is_active ? "bg-emerald-500" : "bg-slate-400"}>{paymentConfig?.is_active ? "Live" : "Inactive"}</Badge>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-500 uppercase">Key ID</Label><Input value={paymentConfig?.razorpay_key_id || ''} onChange={e => setPaymentConfig({...paymentConfig, razorpay_key_id: e.target.value})} className="h-12 bg-white/80 border-none shadow-soft rounded-xl font-mono text-xs" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-500 uppercase">Key Secret</Label><Input type="password" value={paymentConfig?.razorpay_key_secret || ''} onChange={e => setPaymentConfig({...paymentConfig, razorpay_key_secret: e.target.value})} className="h-12 bg-white/80 border-none shadow-soft rounded-xl font-mono text-xs" /></div>
+                      <Button className="w-full h-12 bg-slate-900 text-white font-black shadow-glow rounded-xl" onClick={savePaymentConfig}>Save Config</Button>
+                    </div>
+                  </Card>
+
+                  <Card className="p-8 border-none shadow-elegant bg-red-50/50 rounded-3xl border border-red-100">
+                    <h3 className="text-xl font-black uppercase text-red-600 mb-4">Danger Zone</h3>
+                    <Button variant="destructive" className="w-full h-12 font-black shadow-glow rounded-xl" onClick={() => setIsResetDialogOpen(true)}>Platform Factory Reset</Button>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  <Card className="p-8 border-none shadow-elegant bg-white/50 backdrop-blur-sm rounded-3xl">
+                    <h3 className="text-2xl font-black text-slate-800 mb-6">Internship Domains</h3>
+                    <div className="flex gap-3 mb-6"><Input value={newDomain} onChange={e => setNewDomain(e.target.value)} placeholder="New Domain..." className="h-12 bg-white shadow-soft rounded-xl border-none" /><Button variant="hero" className="h-12 px-6 shadow-glow font-bold rounded-xl" onClick={addDomain}>Add</Button></div>
+                    <div className="flex flex-wrap gap-2">{domains.map(d => <Badge key={d.id} variant="secondary" className="pl-4 pr-1 py-2 gap-2 text-xs font-bold rounded-full bg-white border border-slate-100 shadow-sm group">{d.name} <Button size="sm" variant="ghost" className="size-4 p-0 opacity-0 group-hover:opacity-100" onClick={() => delDomain(d.id)}><Trash2 className="size-3" /></Button></Badge>)}</div>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </main>
+
+      <Dialog open={isAddStaffOpen} onOpenChange={setIsAddStaffOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
+          <div className="bg-slate-900 p-8 text-white">
+            <Shield className="size-12 text-primary mb-4" />
+            <DialogTitle className="text-2xl font-black tracking-tight">Grant Administrative Access</DialogTitle>
+            <DialogDescription className="text-slate-400 text-sm mt-1">Elevate a user to administrative status. They will have access to manage students and certificates.</DialogDescription>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase text-slate-500">Authorized Email Address</Label>
+              <Input value={staffEmail} onChange={e => setStaffEmail(e.target.value)} placeholder="admin@ezyintern.com" className="h-12 bg-slate-50 border-none shadow-inner" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button onClick={handleAddStaff} className="h-12 font-black shadow-glow">Finalize Appointment</Button>
+              <Button variant="ghost" onClick={() => setIsAddStaffOpen(false)} className="text-slate-500 font-bold">Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
+          <div className="bg-primary/5 p-8 border-b">
+            <div className="flex items-center gap-4">
+              <div className="size-16 rounded-2xl bg-primary text-white flex items-center justify-center text-2xl font-black shadow-glow">{selectedUser?.full_name?.charAt(0)}</div>
+              <div>
+                <h2 className="text-2xl font-black tracking-tight">{selectedUser?.full_name}</h2>
+                <p className="text-muted-foreground font-medium">{selectedUser?.email}</p>
+              </div>
+            </div>
+          </div>
+          {selectedUser && (
+            <ScrollArea className="max-h-[60vh] p-8">
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Academic Segment</Label><div className="font-bold text-slate-800">{selectedUser.internship_domain}</div></div>
+                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Institution</Label><div className="font-bold text-slate-800">{selectedUser.college_name || "N/A"}</div></div>
+                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Roll Identification</Label><div className="font-bold text-slate-800">{selectedUser.roll_number || "N/A"}</div></div>
+                </div>
+                <div className="space-y-6">
+                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Current Status</Label><Badge variant={selectedUser.status === 'Blocked' ? 'destructive' : 'hero'} className="font-black uppercase text-[10px]">{selectedUser.status || 'Active'}</Badge></div>
+                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Registration ID</Label><div className="font-bold text-slate-800">{selectedUser.registration_id || "N/A"}</div></div>
+                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Enrolment Date</Label><div className="font-bold text-slate-800">{new Date(selectedUser.created_at).toLocaleDateString()}</div></div>
+                </div>
+              </div>
+              <Separator className="my-8" />
+              <div className="grid grid-cols-2 gap-8">
+                <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Phone Number</Label><div className="font-bold text-slate-800">{selectedUser.phone || "N/A"}</div></div>
+                <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Degree/Course</Label><div className="font-bold text-slate-800">{selectedUser.course || "N/A"}</div></div>
+              </div>
+            </ScrollArea>
+          )}
+          <div className="p-6 bg-slate-50 flex justify-end gap-3">
+             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)} className="font-bold">Close Portal</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPermsDialogOpen} onOpenChange={setIsPermsDialogOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
+          <div className="bg-indigo-600 p-8 text-white">
+            <Shield className="size-12 text-white/90 mb-4" />
+            <DialogTitle className="text-2xl font-black tracking-tight">Admin Permissions</DialogTitle>
+            <DialogDescription className="text-indigo-100 text-sm mt-1">Manage what <strong>{selectedAdminForPerms?.full_name}</strong> can access in their dashboard.</DialogDescription>
+          </div>
+          <div className="p-8 space-y-4">
+            {[
+              { id: 'can_manage_students', label: 'Student Management', desc: 'Can view, edit, and filter student records' },
+              { id: 'can_manage_classes', label: 'Live Classes', desc: 'Can schedule and manage video sessions' },
+              { id: 'can_manage_certificates', label: 'Certificates', desc: 'Can generate and issue internship certificates' },
+              { id: 'can_manage_institutions', label: 'Academic Partners', desc: 'Can manage Universities and Colleges' }
+            ].map(perm => {
+              const userPerms = adminPermissions.find(ap => ap.user_id === selectedAdminForPerms?.id) || {};
+              const isEnabled = userPerms[perm.id] ?? true; // default true
+              
+              return (
+                <div key={perm.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="pr-4">
+                    <p className="text-sm font-bold text-slate-800">{perm.label}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium">{perm.desc}</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => toggleAdminPermission(selectedAdminForPerms.id, perm.id, isEnabled)}
+                    className={isEnabled ? "text-indigo-600" : "text-slate-400"}
+                  >
+                    {isEnabled ? <ToggleRight className="size-8" /> : <ToggleLeft className="size-8" />}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t">
+            <Button className="w-full h-11 font-bold rounded-xl" onClick={() => setIsPermsDialogOpen(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <SiteFooter />
+      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
+          <div className="bg-red-600 p-8 text-white">
+            <Ban className="size-12 text-white/90 mb-4" />
+            <DialogTitle className="text-2xl font-black tracking-tight">Factory Reset</DialogTitle>
+            <DialogDescription className="text-red-100 text-sm mt-1">This action is irreversible. All student and transaction data will be purged.</DialogDescription>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2"><Checkbox id="r-students" checked={resetOptions.students} onCheckedChange={v => setResetOptions({...resetOptions, students: !!v})} /><Label htmlFor="r-students">Students</Label></div>
+              <div className="flex items-center space-x-2"><Checkbox id="r-payments" checked={resetOptions.payments} onCheckedChange={v => setResetOptions({...resetOptions, payments: !!v})} /><Label htmlFor="r-payments">Transactions</Label></div>
+              <div className="flex items-center space-x-2"><Checkbox id="r-leads" checked={resetOptions.leads} onCheckedChange={v => setResetOptions({...resetOptions, leads: !!v})} /><Label htmlFor="r-leads">Leads</Label></div>
+              <div className="flex items-center space-x-2"><Checkbox id="r-certs" checked={resetOptions.certs} onCheckedChange={v => setResetOptions({...resetOptions, certs: !!v})} /><Label htmlFor="r-certs">Certificates</Label></div>
+              <div className="flex items-center space-x-2"><Checkbox id="r-classes" checked={resetOptions.classes} onCheckedChange={v => setResetOptions({...resetOptions, classes: !!v})} /><Label htmlFor="r-classes">Live Classes</Label></div>
+              <div className="flex items-center space-x-2"><Checkbox id="r-institutions" checked={resetOptions.institutions} onCheckedChange={v => setResetOptions({...resetOptions, institutions: !!v})} /><Label htmlFor="r-institutions">Institutions</Label></div>
+              <div className="flex items-center space-x-2"><Checkbox id="r-domains" checked={resetOptions.domains} onCheckedChange={v => setResetOptions({...resetOptions, domains: !!v})} /><Label htmlFor="r-domains">Domains</Label></div>
+              <Button variant="ghost" size="sm" className="text-[10px] font-bold" onClick={() => setResetOptions({students: true, payments: true, leads: true, certs: true, classes: true, institutions: true, domains: true})}>SELECT ALL</Button>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase text-slate-500">Type "RESET" to confirm</Label>
+              <Input value={resetConfirmText} onChange={e => setResetConfirmText(e.target.value)} placeholder="RESET" className="h-12 bg-red-50 border-none shadow-inner text-red-600 font-black text-center" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button variant="destructive" onClick={resetPlatformData} disabled={processing || !resetConfirmText} className="h-12 font-black shadow-glow">Execute Selected Reset</Button>
+              <Button variant="ghost" onClick={() => setIsResetDialogOpen(false)} className="text-slate-500 font-bold">Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+
+export default SuperAdmin;
