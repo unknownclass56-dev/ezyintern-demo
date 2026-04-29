@@ -25,7 +25,23 @@ type Step = 1 | 2 | 3 | 4;
 
 interface University { id: string; name: string }
 interface College { id: string; name: string; university_id: string }
-interface Department { id: string; name: string; college_id: string }
+
+const baSubjects = [
+  "B.A. (Ancient Indian History - AIH)", "B.A. (Anthropology)", "B.A. (Arabic)", "B.A. (Bengali)",
+  "B.A. (Bhojpuri)", "B.A. (Dramatics)", "B.A. (Economics)", "B.A. (English)", "B.A. (Geography)",
+  "B.A. (Home Science)", "B.A. (Hindi)", "B.A. (History)", "B.A. (Law)", "B.A. (Maithili)",
+  "B.A. (Mathematics)", "B.A. (Music)", "B.A. (Pali)", "B.A. (Persian)", "B.A. (Philosophy)",
+  "B.A. (Political Science)", "B.A. (Prakrit)", "B.A. (Psychology)", "B.A. (Rural Economics)",
+  "B.A. (Sanskrit)", "B.A. (Sociology)", "B.A. (Statistics)", "B.A. (Urdu)", "Statistics"
+];
+
+const bscSubjects = [
+  "B.Sc (Botany)", "B.Sc (Chemistry)", "B.Sc (Mathematics)", "B.Sc (Physics)", "B.Sc (Zoology)"
+];
+
+const bcomSubjects = [
+  "B.Com Accounting and Finance", "B.Com (HRM)", "B.Com (Marketing)"
+];
 
 const Register = () => {
   const navigate = useNavigate();
@@ -44,11 +60,11 @@ const Register = () => {
   // Step 2
   const [unis, setUnis] = useState<University[]>([]);
   const [colleges, setColleges] = useState<College[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [domains, setDomains] = useState<any[]>([]);
   const [universityId, setUniversityId] = useState("");
   const [collegeId, setCollegeId] = useState("");
   const [degree, setDegree] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
+  const [departmentName, setDepartmentName] = useState("");
   const [classSem, setClassSem] = useState("");
   const [session, setSession] = useState("");
   const [subject, setSubject] = useState("");
@@ -68,6 +84,7 @@ const Register = () => {
 
   useEffect(() => {
     supabase.from("universities").select("*").order("name").then(({ data }) => setUnis(data || []));
+    supabase.from("internship_domains").select("*").order("name").then(({ data }) => setDomains(data || []));
     
     // Fetch payment config
     supabase.from("public_payment_config").select("*").maybeSingle().then(({ data }) => {
@@ -84,14 +101,13 @@ const Register = () => {
   useEffect(() => {
     if (!universityId) { setColleges([]); setCollegeId(""); return; }
     supabase.from("colleges").select("*").eq("university_id", universityId).order("name").then(({ data }) => setColleges(data || []));
-    setCollegeId(""); setDepartmentId("");
+    setCollegeId("");
   }, [universityId]);
 
   useEffect(() => {
-    if (!collegeId) { setDepartments([]); setDepartmentId(""); return; }
-    supabase.from("departments").select("*").eq("college_id", collegeId).order("name").then(({ data }) => setDepartments(data || []));
-    setDepartmentId("");
-  }, [collegeId]);
+    setDepartmentName("");
+    setSubject("");
+  }, [degree]);
 
   const validateStep = (): boolean => {
     if (step === 1) {
@@ -230,7 +246,6 @@ const Register = () => {
       // Helper to get names from IDs
       const universityName = unis.find(u => u.id === universityId)?.name || "";
       const collegeName = colleges.find(c => c.id === collegeId)?.name || "";
-      const departmentName = departments.find(d => d.id === departmentId)?.name || "";
 
       // Save everything to the unified 'students' table
       const { error: sError } = await supabase.from("students").insert({
@@ -252,7 +267,8 @@ const Register = () => {
         emergency_contact: emPhone,
         emergency_relation: emRel,
         status: 'Active',
-        registration_id: regId
+        registration_id: regId,
+        metadata: { subject: subject }
       });
       
       if (sError) throw sError;
@@ -382,9 +398,23 @@ const Register = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>Department / Stream *</Label>
-                    <Select value={departmentId} onValueChange={setDepartmentId} disabled={!collegeId}>
-                      <SelectTrigger><SelectValue placeholder={collegeId ? "Select department" : "Select college first"} /></SelectTrigger>
-                      <SelectContent>{departments.map((d) => (<SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>))}</SelectContent>
+                    <Select value={departmentName} onValueChange={(val) => { setDepartmentName(val); setSubject(""); }} disabled={!degree}>
+                      <SelectTrigger><SelectValue placeholder={degree ? "Select department" : "Select degree first"} /></SelectTrigger>
+                      <SelectContent>
+                        {degree === "UG" ? (
+                          <>
+                            <SelectItem value="B.A.">B.A.</SelectItem>
+                            <SelectItem value="B.Sc">B.Sc</SelectItem>
+                            <SelectItem value="B.Com">B.Com</SelectItem>
+                          </>
+                        ) : degree === "PG" ? (
+                          <>
+                            <SelectItem value="M.A.">M.A.</SelectItem>
+                            <SelectItem value="M.Sc">M.Sc</SelectItem>
+                            <SelectItem value="M.Com">M.Com</SelectItem>
+                          </>
+                        ) : null}
+                      </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
@@ -400,11 +430,42 @@ const Register = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>Academic Session *</Label>
-                    <Input value={session} onChange={(e) => setSession(e.target.value)} placeholder="e.g. 2026-2029" />
+                    <Select value={session} onValueChange={setSession}>
+                      <SelectTrigger><SelectValue placeholder="Select session" /></SelectTrigger>
+                      <SelectContent>
+                        {["2023-2027", "2024-2028", "2025-2029"].map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="space-y-2"><Label>Subject</Label><Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Optional" /></div>
+                  <div className="space-y-2">
+                    <Label>Subject</Label>
+                    {departmentName === "B.A." || departmentName === "B.Sc" || departmentName === "B.Com" ? (
+                      <Select value={subject} onValueChange={setSubject}>
+                        <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                        <SelectContent>
+                          {departmentName === "B.A." && baSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          {departmentName === "B.Sc" && bscSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          {departmentName === "B.Com" && bcomSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Enter subject manually" />
+                    )}
+                  </div>
                   <div className="space-y-2"><Label>University Roll Number *</Label><Input value={rollNo} onChange={(e) => setRollNo(e.target.value)} /></div>
-                  <div className="md:col-span-2 space-y-2"><Label>Select Course *</Label><Input value={course} onChange={(e) => setCourse(e.target.value)} placeholder="e.g. B.Tech Computer Science or B.Sc." /></div>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label>Select Domain *</Label>
+                    <Select value={course} onValueChange={setCourse}>
+                      <SelectTrigger><SelectValue placeholder="Select internship domain" /></SelectTrigger>
+                      <SelectContent>
+                        {domains.map((d: any) => (
+                          <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             )}

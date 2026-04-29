@@ -118,7 +118,7 @@ const Index = () => {
       `}</style>
       {/* Announcement Banner */}
       <div className="bg-primary py-2.5 px-4 text-center text-[13px] font-medium text-white">
-        🎓 Registrations Open for 2025–2029 Batch — UGC Compliant · AICTE Registered · ISO 9001:2015 Certified · MCA Registered &nbsp;
+        🎓 Registrations Open for 2026–2029 Batch — UGC Compliant · AICTE Registered · ISO 9001:2015 Certified · MCA Registered &nbsp;
         <Link to="/register" className="text-blue-200 underline hover:text-white transition-colors">Register Now →</Link>
       </div>
 
