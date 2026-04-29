@@ -400,14 +400,7 @@ const Register = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>Academic Session *</Label>
-                    <Select value={session} onValueChange={setSession}>
-                      <SelectTrigger><SelectValue placeholder="Select session" /></SelectTrigger>
-                      <SelectContent>
-                        {["2021-25", "2022-26", "2023-27", "2024-28", "2025-29"].map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input value={session} onChange={(e) => setSession(e.target.value)} placeholder="e.g. 2026-2029" />
                   </div>
                   <div className="space-y-2"><Label>Subject</Label><Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Optional" /></div>
                   <div className="space-y-2"><Label>University Roll Number *</Label><Input value={rollNo} onChange={(e) => setRollNo(e.target.value)} /></div>
