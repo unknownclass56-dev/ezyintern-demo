@@ -143,7 +143,7 @@ const Index = () => {
               </p>
               <div className="flex flex-wrap gap-4 mb-10">
                 <Button size="lg" className="h-14 px-8 text-base font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 rounded-xl group" onClick={() => navigate("/register")}>
-                  🚀 Register Now — Free <ArrowRight className="ml-2 size-5 group-hover:translate-x-1 transition-transform" />
+                  🚀 Register <ArrowRight className="ml-2 size-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
                 <Button variant="outline" size="lg" className="h-14 px-8 text-base font-bold border-2 border-primary text-primary hover:bg-blue-50 rounded-xl" onClick={() => navigate("/verify")}>
                   🔍 Verify Certificate
