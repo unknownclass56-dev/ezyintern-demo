@@ -435,13 +435,15 @@ const Admin = () => {
 
               <Card className="overflow-hidden border-none shadow-elegant">
                 <Table>
-                  <TableHeader className="bg-muted/30"><TableRow>
-                    <TableHead className="w-10"><Checkbox checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Domain</TableHead>
-                    <TableHead>Institution</TableHead>
-                    <TableHead>Joined Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="w-10"><Checkbox checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Domain</TableHead>
+                      <TableHead>Institution</TableHead>
+                      <TableHead>Joined Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isStudentsLoading ? (
