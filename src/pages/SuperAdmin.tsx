@@ -1225,7 +1225,7 @@ const SuperAdmin = () => {
                       <p className="text-xs text-muted-foreground font-medium">Monitoring all successful platform transactions</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-black text-green-600">₹{payments.reduce((acc, curr) => acc + (curr.amount || 0), 0) / 100}</div>
+                      <div className="text-3xl font-black text-green-600">₹{payments.reduce((acc, curr) => acc + (curr.amount_paise || 0), 0) / 100}</div>
                       <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Collection</div>
                     </div>
                   </div>
@@ -1238,11 +1238,11 @@ const SuperAdmin = () => {
                           <TableRow key={pay.id} className="hover:bg-slate-50/50 transition-colors">
                             <TableCell className="text-[10px] font-bold text-slate-500">{new Date(pay.created_at).toLocaleString()}</TableCell>
                             <TableCell>
-                              <div className="font-black text-slate-800 text-sm">{pay.metadata?.full_name || pay.user_email}</div>
-                              <div className="text-[10px] text-muted-foreground font-medium">{pay.user_email} • {pay.metadata?.college || 'N/A'}</div>
+                              <div className="font-black text-slate-800 text-sm">{pay.full_name || pay.email}</div>
+                              <div className="text-[10px] text-muted-foreground font-medium">{pay.email}</div>
                             </TableCell>
                             <TableCell><Badge variant="outline" className="text-[10px] font-mono bg-white">{pay.payment_id}</Badge></TableCell>
-                            <TableCell className="font-black text-slate-800">₹{pay.amount / 100}</TableCell>
+                            <TableCell className="font-black text-slate-800">₹{(pay.amount_paise || 0) / 100}</TableCell>
                             <TableCell><Badge className="bg-green-500 shadow-sm border-none text-[10px] uppercase font-black px-3 py-1">Captured</Badge></TableCell>
                             <TableCell className="text-right">
                               <Button 
@@ -1250,7 +1250,7 @@ const SuperAdmin = () => {
                                 size="sm" 
                                 className="size-8 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors" 
                                 onClick={() => {
-                                  const student = students.find(s => s.email === pay.user_email);
+                                  const student = students.find(s => s.email === pay.email);
                                   if (student) {
                                     setSelectedUser(student);
                                     setIsViewDialogOpen(true);

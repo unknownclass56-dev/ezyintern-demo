@@ -717,19 +717,19 @@ const Admin = () => {
                           <TableRow key={pay.id}>
                             <TableCell className="text-[10px] font-medium">{new Date(pay.created_at).toLocaleString()}</TableCell>
                             <TableCell>
-                              <div className="font-bold text-slate-800">{pay.metadata?.full_name || pay.user_email}</div>
-                              <div className="text-[10px] text-muted-foreground">{pay.user_email} • {pay.metadata?.college || 'N/A'}</div>
+                              <div className="font-bold text-slate-800">{pay.full_name || pay.email}</div>
+                              <div className="text-[10px] text-muted-foreground">{pay.email}</div>
                             </TableCell>
                             <TableCell><Badge variant="outline" className="text-[10px] font-mono">{pay.payment_id}</Badge></TableCell>
-                            <TableCell className="font-black text-slate-800">₹{pay.amount / 100}</TableCell>
-                            <TableCell><Badge className="bg-green-500 text-[10px] uppercase">{pay.status}</Badge></TableCell>
+                            <TableCell className="font-black text-slate-800">₹{(pay.amount_paise || 0) / 100}</TableCell>
+                            <TableCell><Badge className="bg-green-500 text-[10px] uppercase">Captured</Badge></TableCell>
                             <TableCell className="text-right">
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 className="size-8 p-0" 
                                 onClick={() => {
-                                  const student = students.find(s => s.email === pay.user_email);
+                                  const student = students.find(s => s.email === pay.email);
                                   if (student) {
                                     setSelectedUser(student);
                                     setIsViewDialogOpen(true);
