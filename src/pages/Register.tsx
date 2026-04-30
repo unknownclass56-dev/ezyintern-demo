@@ -205,11 +205,15 @@ const Register = () => {
   const submit = async () => {
     if (!validateStep()) return;
     setSubmitting(true);
+    console.log("Submit started...");
     
     try {
       // 1. Handle Payment First
+      let result: any = { success: true };
       if (paymentSettings?.is_active) {
-        const result: any = await handlePayment();
+        console.log("Starting payment process...");
+        result = await handlePayment();
+        console.log("Payment result:", result);
         if (!result.success) {
           setSubmitting(false);
           return;
@@ -217,11 +221,17 @@ const Register = () => {
       }
 
       const redirectUrl = `${window.location.origin}/dashboard`;
+      console.log("Starting Supabase signUp...");
       const { data, error } = await supabase.auth.signUp({
         email, password,
         options: { emailRedirectTo: redirectUrl, data: { full_name: fullName } },
       });
-      if (error) throw error;
+      
+      if (error) {
+        console.error("SignUp error:", error);
+        throw error;
+      }
+      console.log("SignUp successful for user:", data.user?.id);
       const userId = data.user?.id;
       if (!userId) throw new Error("Signup failed");
 
@@ -248,7 +258,8 @@ const Register = () => {
       const collegeName = colleges.find(c => c.id === collegeId)?.name || "";
 
       // Save everything to the unified 'students' table
-      const { error: sError } = await supabase.from("students").insert({
+      console.log("Inserting student data for user:", userId);
+      const studentData = {
         id: userId,
         email: email,
         full_name: fullName,
@@ -258,6 +269,7 @@ const Register = () => {
         university_name: universityName,
         college_name: collegeName,
         course: course,
+        internship_domain: course, // Mapping course to domain for admin panel
         degree: degree,
         department: departmentName,
         class_semester: classSem,
@@ -269,17 +281,33 @@ const Register = () => {
         status: 'Active',
         registration_id: regId,
         metadata: { subject: subject }
-      });
+      };
+      console.log("Student Data:", studentData);
+
+      const { error: sError } = await supabase.from("students").insert(studentData);
       
-      if (sError) throw sError;
+      if (sError) {
+        console.error("Student insertion error:", sError);
+        throw sError;
+      }
+      console.log("Student data inserted successfully");
 
       // Keep profiles sync for auth consistency
-      await supabase.from("profiles").upsert({ 
+      console.log("Upserting profile for user:", userId);
+      const { error: pError } = await supabase.from("profiles").upsert({ 
         id: userId, 
         full_name: fullName, 
         email: email,
-        contact_number: contact
+        contact_number: contact,
+        gender: gender,
+        parent_name: parentName
       });
+
+      if (pError) {
+        console.error("Profile upsert error:", pError);
+      } else {
+        console.log("Profile upserted successfully");
+      }
 
       setSuccess(true);
       toast.success("Registration complete!");

@@ -178,6 +178,10 @@ CREATE TABLE IF NOT EXISTS public.students (
   academic_session TEXT,
   roll_number TEXT,
   course TEXT,
+  emergency_name TEXT,
+  emergency_contact TEXT,
+  emergency_relation TEXT,
+  metadata JSONB,
   registration_id TEXT UNIQUE,
   status TEXT DEFAULT 'Active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()

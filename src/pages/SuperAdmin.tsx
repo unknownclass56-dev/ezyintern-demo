@@ -532,20 +532,28 @@ const SuperAdmin = () => {
     } catch (err: any) { toast.error(err.message); }
   };
 
-  const savePaymentConfig = async () => {
+  const updatePaymentConfig = async (updates: any) => {
     try {
+      const newConfig = { ...paymentConfig, ...updates };
+      setPaymentConfig(newConfig);
       const { error } = await supabase.from("payment_config").upsert({
         id: 1,
-        razorpay_key_id: paymentConfig.razorpay_key_id,
-        razorpay_key_secret: paymentConfig.razorpay_key_secret,
-        amount_paise: paymentConfig.amount_paise,
-        is_active: paymentConfig.is_active,
+        razorpay_key_id: newConfig.razorpay_key_id,
+        razorpay_key_secret: newConfig.razorpay_key_secret,
+        amount_paise: newConfig.amount_paise,
+        is_active: newConfig.is_active,
         updated_at: new Date().toISOString()
       });
       if (error) throw error;
-      toast.success("Payment configuration saved!");
+      toast.success("Payment settings updated!");
       loadAll();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: any) { 
+      toast.error(err.message); 
+    }
+  };
+
+  const savePaymentConfig = async () => {
+    await updatePaymentConfig({});
   };
 
   const toggleSystemSetting = async (key: string, current: boolean) => {
@@ -1016,7 +1024,7 @@ const SuperAdmin = () => {
                         />
                       </div>
                       <div className="flex items-end">
-                        <Button variant="hero" className="w-full h-11 shadow-glow font-bold" onClick={() => updatePaymentConfig(paymentConfig)}>
+                        <Button variant="hero" className="w-full h-11 shadow-glow font-bold" onClick={() => savePaymentConfig()}>
                           Save Gateway Settings
                         </Button>
                       </div>
