@@ -235,20 +235,17 @@ const Register = () => {
       const userId = data.user?.id;
       if (!userId) throw new Error("Signup failed");
 
-      // Record successful payment if active
+      // 2. Log successful payment if applicable
       if (paymentSettings?.is_active && result?.payment_id) {
-        await supabase.from("payment_success").insert({
-          user_email: email,
-          user_phone: contact,
+        console.log("Logging successful payment...");
+        const { error: payError } = await supabase.from("payment_success").insert({
+          user_id: userId,
           payment_id: result.payment_id,
-          amount: paymentSettings.amount_paise,
-          status: 'Captured',
-          metadata: { 
-            full_name: fullName, 
-            college: colleges.find(c => c.id === collegeId)?.name,
-            course: course
-          }
+          amount_paise: paymentSettings.amount_paise,
+          email: email,
+          full_name: fullName
         });
+        if (payError) console.error("Payment logging error:", payError);
       }
 
       const regId = `EZY-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -284,12 +281,15 @@ const Register = () => {
       };
       console.log("Student Data:", studentData);
 
-      const { error: sError } = await supabase.from("students").insert(studentData);
+      const { error: insertError } = await supabase.from("students").insert(studentData);
       
-      if (sError) {
-        console.error("Student insertion error:", sError);
-        throw sError;
+      if (insertError) {
+        console.error("Student insertion error:", insertError);
+        toast.error(`Database Error: ${insertError.message}`);
+        setSubmitting(false);
+        return;
       }
+
       console.log("Student data inserted successfully");
 
       // Keep profiles sync for auth consistency
