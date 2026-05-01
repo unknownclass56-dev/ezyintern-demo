@@ -18,7 +18,7 @@ import {
   Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, 
   Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, 
   Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, 
-  ToggleRight, TrendingUp, Activity, DollarSign, Clock
+  ToggleRight, TrendingUp, Activity, DollarSign, Clock, GraduationCap
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -712,8 +712,28 @@ const SuperAdmin = () => {
   if (!allowed) return <div className="p-10 text-center">Access Denied</div>;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <SiteNav />
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* Super Admin Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-8 rounded-lg overflow-hidden bg-white border border-slate-100">
+              <img src="/logo.png" alt="EzyIntern" className="w-full h-full object-cover" />
+            </div>
+            <span className="font-bold text-slate-900 hidden sm:block">Super Portal</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10 gap-2" onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}>
+              <LogIn className="size-4 rotate-180" />
+              <span className="hidden md:inline">Logout</span>
+            </Button>
+          </div>
+        </div>
+      </header>
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4">
           {/* Header Section */}
@@ -1436,20 +1456,34 @@ const SuperAdmin = () => {
                         {cancelledPayments.map(cp => (
                           <TableRow key={cp.id} className="hover:bg-indigo-50/20 transition-colors">
                             <TableCell className="text-[10px] font-bold text-slate-500">{new Date(cp.created_at).toLocaleString()}</TableCell>
-                            <TableCell>
-                              <div className="font-black text-slate-800 text-sm">{cp.metadata?.fullName || cp.user_email}</div>
-                              <div className="text-[10px] text-muted-foreground font-medium">{cp.user_email} • {cp.user_phone || 'No phone'}</div>
-                              <div className="mt-1 flex gap-1">
-                                <Badge variant="outline" className="text-[8px] font-black uppercase text-indigo-500 border-indigo-100">{cp.metadata?.college || 'No College'}</Badge>
-                                <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-400 border-slate-100">{cp.metadata?.course || 'No Course'}</Badge>
-                              </div>
-                            </TableCell>
+                             <TableCell>
+                               <div className="font-black text-slate-800 text-sm">{cp.metadata?.fullName || cp.user_email}</div>
+                               <div className="text-[10px] text-muted-foreground font-medium">{cp.user_email} • {cp.user_phone || cp.metadata?.contact || 'No phone'}</div>
+                               <div className="flex flex-wrap gap-1 mt-1">
+                                 <Badge variant="outline" className="text-[8px] font-black uppercase text-indigo-500 border-indigo-100 leading-none py-0.5">{cp.metadata?.college || 'No College'}</Badge>
+                                 <Badge variant="outline" className="text-[8px] font-black uppercase text-emerald-500 border-emerald-100 leading-none py-0.5">{cp.metadata?.course || 'No Domain'}</Badge>
+                                 {cp.metadata?.semester && <Badge variant="outline" className="text-[8px] font-black uppercase text-amber-500 border-amber-100 leading-none py-0.5">{cp.metadata.semester}</Badge>}
+                               </div>
+                             </TableCell>
                             <TableCell className="font-black text-slate-800">₹{(cp.amount || 0) / 100}</TableCell>
                             <TableCell><Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none text-[10px] font-bold">{cp.reason}</Badge></TableCell>
                             <TableCell className="text-right">
-                              <Button asChild variant="ghost" size="sm" className="size-9 p-0 rounded-full hover:bg-indigo-600 hover:text-white transition-all">
-                                <a href={`mailto:${cp.user_email}`}><Mail className="size-4" /></a>
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="size-9 p-0 rounded-full hover:bg-indigo-600 hover:text-white transition-all"
+                                  onClick={() => {
+                                    setSelectedUser(cp);
+                                    setIsViewDialogOpen(true);
+                                  }}
+                                >
+                                  <Eye className="size-4" />
+                                </Button>
+                                <Button asChild variant="ghost" size="sm" className="size-9 p-0 rounded-full hover:bg-indigo-600 hover:text-white transition-all">
+                                  <a href={`mailto:${cp.user_email}`}><Mail className="size-4" /></a>
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1660,43 +1694,107 @@ const SuperAdmin = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
-          <div className="bg-primary/5 p-8 border-b">
-            <div className="flex items-center gap-4">
-              <div className="size-16 rounded-2xl bg-primary text-white flex items-center justify-center text-2xl font-black shadow-glow">{selectedUser?.full_name?.charAt(0)}</div>
-              <div>
-                <h2 className="text-2xl font-black tracking-tight">{selectedUser?.full_name}</h2>
-                <p className="text-muted-foreground font-medium">{selectedUser?.email}</p>
-              </div>
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}><DialogContent className="max-w-3xl p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
+        <div className="bg-primary p-8 text-white relative">
+          <div className="flex items-center gap-6">
+            <div className="size-20 rounded-3xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl font-black shadow-inner">
+              {(selectedUser?.full_name || selectedUser?.metadata?.fullName || "P")?.charAt(0)}
+            </div>
+            <div>
+              <DialogTitle className="text-3xl font-black tracking-tight">
+                {selectedUser?.full_name || selectedUser?.metadata?.fullName || "Profile Details"}
+              </DialogTitle>
+              <p className="text-primary-foreground/80 font-bold text-sm mt-1">
+                {selectedUser?.registration_id ? `REGISTRATION ID: ${selectedUser.registration_id}` : "LEAD / PENDING REGISTRATION"}
+              </p>
             </div>
           </div>
-          {selectedUser && (
-            <ScrollArea className="max-h-[60vh] p-8">
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Academic Segment</Label><div className="font-bold text-slate-800">{selectedUser.internship_domain}</div></div>
-                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Institution</Label><div className="font-bold text-slate-800">{selectedUser.college_name || "N/A"}</div></div>
-                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Roll Identification</Label><div className="font-bold text-slate-800">{selectedUser.roll_number || "N/A"}</div></div>
-                </div>
-                <div className="space-y-6">
-                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Current Status</Label><Badge variant={selectedUser.status === 'Blocked' ? 'destructive' : 'hero'} className="font-black uppercase text-[10px]">{selectedUser.status || 'Active'}</Badge></div>
-                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Registration ID</Label><div className="font-bold text-slate-800">{selectedUser.registration_id || "N/A"}</div></div>
-                  <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Enrolment Date</Label><div className="font-bold text-slate-800">{new Date(selectedUser.created_at).toLocaleDateString()}</div></div>
+          <Badge className="absolute top-8 right-8 bg-white/20 hover:bg-white/30 border-none text-[10px] font-black uppercase tracking-widest px-4 py-1.5 backdrop-blur-sm">
+            {selectedUser?.status || "Lead"}
+          </Badge>
+        </div>
+        
+        {selectedUser && (
+          <ScrollArea className="max-h-[75vh]">
+            <div className="p-8 space-y-10">
+              {/* Personal Section */}
+              <div className="space-y-6">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
+                  <User className="size-4" /> Personal Profile
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Gender</Label><p className="text-sm font-bold text-slate-900">{selectedUser.gender || selectedUser.metadata?.gender || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Email Address</Label><p className="text-sm font-bold text-slate-900 truncate">{selectedUser.email || selectedUser.user_email || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Contact Number</Label><p className="text-sm font-bold text-slate-900">{selectedUser.contact_number || selectedUser.user_phone || "—"}</p></div>
+                  <div className="md:col-span-2"><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Parent / Guardian Name</Label><p className="text-sm font-bold text-slate-900">{selectedUser.parent_name || selectedUser.metadata?.parentName || "—"}</p></div>
                 </div>
               </div>
-              <Separator className="my-8" />
-              <div className="grid grid-cols-2 gap-8">
-                <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Phone Number</Label><div className="font-bold text-slate-800">{selectedUser.phone || "N/A"}</div></div>
-                <div><Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest block mb-1">Degree/Course</Label><div className="font-bold text-slate-800">{selectedUser.course || "N/A"}</div></div>
+
+              <Separator className="bg-slate-100" />
+
+              {/* Academic Section */}
+              <div className="space-y-6">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
+                  <GraduationCap className="size-4" /> Academic Credentials
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+                  <div className="md:col-span-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">University</Label>
+                    <p className="text-sm font-black text-slate-900">{selectedUser.university_name || selectedUser.metadata?.university || "—"}</p>
+                  </div>
+                  <div className="md:col-span-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">College / Institute</Label>
+                    <p className="text-sm font-black text-slate-900">{selectedUser.college_name || selectedUser.metadata?.college || "—"}</p>
+                  </div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Degree / Program</Label><p className="text-sm font-bold text-slate-900">{selectedUser.degree || selectedUser.metadata?.degree || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Department</Label><p className="text-sm font-bold text-slate-900">{selectedUser.department || selectedUser.metadata?.department || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Subject / Major</Label><p className="text-sm font-bold text-slate-900">{selectedUser.metadata?.subject || selectedUser.metadata?.subject || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Academic Session</Label><p className="text-sm font-bold text-slate-900">{selectedUser.academic_session || selectedUser.metadata?.session || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Current Semester</Label><p className="text-sm font-bold text-slate-900">{selectedUser.class_semester || selectedUser.metadata?.semester || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Roll Identification</Label><p className="text-sm font-bold text-slate-900">{selectedUser.roll_number || selectedUser.metadata?.rollNo || "—"}</p></div>
+                </div>
+                
+                <div className="mt-6 p-6 bg-indigo-600 rounded-3xl text-white shadow-glow">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Briefcase className="size-5" />
+                    <Label className="text-[10px] uppercase font-black tracking-[0.2em] opacity-80">Target Internship Domain</Label>
+                  </div>
+                  <p className="text-2xl font-black">{selectedUser.internship_domain || selectedUser.metadata?.course || "NOT ASSIGNED"}</p>
+                </div>
               </div>
-            </ScrollArea>
-          )}
-          <div className="p-6 bg-slate-50 flex justify-end gap-3">
-             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)} className="font-bold">Close Portal</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
+              <Separator className="bg-slate-100" />
+
+              {/* Emergency Section */}
+              <div className="space-y-6">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
+                  <Phone className="size-4" /> Emergency Protocol
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Contact Name</Label><p className="text-sm font-bold text-slate-900">{selectedUser.emergency_name || selectedUser.metadata?.emName || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Relationship</Label><p className="text-sm font-bold text-slate-900">{selectedUser.emergency_relation || selectedUser.metadata?.emRel || "—"}</p></div>
+                  <div><Label className="text-[10px] uppercase text-muted-foreground font-black tracking-wider">Contact Phone</Label><p className="text-sm font-bold text-slate-900 font-mono">{selectedUser.emergency_contact || selectedUser.metadata?.emPhone || "—"}</p></div>
+                </div>
+              </div>
+
+              {selectedUser.reason && (
+                <div className="p-6 bg-red-50 rounded-3xl border border-red-100">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Ban className="size-5 text-red-600" />
+                    <Label className="text-[10px] uppercase text-red-600 font-black tracking-widest">Abandonment Reason / System Log</Label>
+                  </div>
+                  <p className="text-sm font-black text-red-700">{selectedUser.reason}</p>
+                  <p className="text-[10px] text-red-500/80 font-medium mt-1 italic">This student reached checkout but the session was terminated or failed.</p>
+                </div>
+              )}
+              
+              <div className="pt-4 flex justify-end">
+                <Button variant="outline" className="rounded-xl font-bold h-11 px-8" onClick={() => setIsViewDialogOpen(false)}>Close Dossier</Button>
+              </div>
+            </div>
+          </ScrollArea>
+        )}
+      </DialogContent></Dialog>
 
       <Dialog open={isPermsDialogOpen} onOpenChange={setIsPermsDialogOpen}>
         <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
@@ -1739,7 +1837,11 @@ const SuperAdmin = () => {
         </DialogContent>
       </Dialog>
 
-      <SiteFooter />
+      <footer className="py-8 bg-slate-900 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800">
+        <div className="container mx-auto px-4 text-center">
+          <p>© {new Date().getFullYear()} EzyIntern Super Admin. All rights reserved.</p>
+        </div>
+      </footer>
       <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
         <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
           <div className="bg-red-600 p-8 text-white">

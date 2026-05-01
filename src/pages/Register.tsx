@@ -173,8 +173,22 @@ const Register = () => {
               reason: "User dismissed payment modal",
               metadata: { 
                 fullName, 
+                gender,
+                parentName,
+                email,
+                contact,
+                university: unis.find(u => u.id === universityId)?.name,
                 college: colleges.find(c => c.id === collegeId)?.name,
-                course: course
+                degree,
+                department: departmentName,
+                subject,
+                session,
+                semester: classSem,
+                rollNo,
+                course,
+                emName,
+                emPhone,
+                emRel
               }
             });
             resolve({ success: false });
@@ -190,9 +204,23 @@ const Register = () => {
           reason: response.error.description,
           metadata: {
             errorCode: response.error.code,
-            fullName: fullName,
+            fullName, 
+            gender,
+            parentName,
+            email,
+            contact,
+            university: unis.find(u => u.id === universityId)?.name,
             college: colleges.find(c => c.id === collegeId)?.name,
-            course: course
+            degree,
+            department: departmentName,
+            subject,
+            session,
+            semester: classSem,
+            rollNo,
+            course,
+            emName,
+            emPhone,
+            emRel
           }
         });
         toast.error(`Payment failed: ${response.error.description}`);

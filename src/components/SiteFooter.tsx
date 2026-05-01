@@ -68,6 +68,7 @@ export const SiteFooter = () => (
         </div>
       </div>
 
+
       <div className="mt-16 pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
         <p>© {new Date().getFullYear()} EzyIntern. Government Certified Provider.</p>
         <div className="flex gap-8">

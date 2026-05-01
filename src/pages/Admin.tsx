@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, ToggleRight, DollarSign } from "lucide-react";
+import { Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, ToggleRight, DollarSign, GraduationCap } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -477,8 +477,28 @@ const Admin = () => {
   if (!allowed) return <div className="p-10 text-center">Access Denied</div>;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <SiteNav />
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* Admin Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-8 rounded-lg overflow-hidden bg-white border border-slate-100">
+              <img src="/logo.png" alt="EzyIntern" className="w-full h-full object-cover" />
+            </div>
+            <span className="font-bold text-slate-900 hidden sm:block">Admin Portal</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 gap-2" onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}>
+              <LogIn className="size-4 rotate-180" />
+              <span className="hidden md:inline">Logout</span>
+            </Button>
+          </div>
+        </div>
+      </header>
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -847,15 +867,32 @@ const Admin = () => {
                           <TableCell className="text-[10px] font-medium">{new Date(cp.created_at).toLocaleString()}</TableCell>
                           <TableCell>
                             <div className="font-bold text-slate-800">{cp.metadata?.fullName || cp.user_email}</div>
-                            <div className="text-[10px] text-muted-foreground">{cp.user_email} • {cp.user_phone}</div>
-                            <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{cp.metadata?.college || 'N/A'}</div>
+                            <div className="text-[10px] text-muted-foreground">{cp.user_email} • {cp.user_phone || cp.metadata?.contact || 'No phone'}</div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              <Badge variant="outline" className="text-[8px] font-black uppercase text-indigo-500 border-indigo-100 leading-none py-0.5">{cp.metadata?.college || 'No College'}</Badge>
+                              <Badge variant="outline" className="text-[8px] font-black uppercase text-emerald-500 border-emerald-100 leading-none py-0.5">{cp.metadata?.course || 'No Domain'}</Badge>
+                              {cp.metadata?.semester && <Badge variant="outline" className="text-[8px] font-black uppercase text-amber-500 border-amber-100 leading-none py-0.5">{cp.metadata.semester}</Badge>}
+                            </div>
                           </TableCell>
                           <TableCell className="font-bold">₹{(cp.amount || 0) / 100}</TableCell>
                           <TableCell><Badge variant="outline" className="text-[10px] border-red-200 text-red-600 bg-red-50">{cp.reason}</Badge></TableCell>
                           <TableCell className="text-right">
-                            <a href={`mailto:${cp.user_email}`} className="inline-flex items-center justify-center size-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors">
-                              <Mail className="size-4" />
-                            </a>
+                            <div className="flex items-center justify-end gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="size-8 p-0" 
+                                onClick={() => {
+                                  setSelectedUser(cp);
+                                  setIsViewDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="size-4" />
+                              </Button>
+                              <a href={`mailto:${cp.user_email}`} className="inline-flex items-center justify-center size-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors">
+                                <Mail className="size-4" />
+                              </a>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -885,27 +922,87 @@ const Admin = () => {
         <DialogFooter><Button onClick={handleAddStaff}>Grant Access</Button></DialogFooter>
       </DialogContent></Dialog>
 
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}><DialogContent className="max-w-xl">
-        <DialogHeader><DialogTitle>Student Profile</DialogTitle></DialogHeader>
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}><DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
+        <div className="bg-primary p-6 text-white">
+          <DialogTitle className="text-2xl font-black">
+            {selectedUser?.full_name || selectedUser?.metadata?.fullName || "Profile Details"}
+          </DialogTitle>
+          <p className="text-primary-foreground/80 text-xs mt-1">
+            {selectedUser?.registration_id ? `Reg ID: ${selectedUser.registration_id}` : "Lead / Pending Registration"}
+          </p>
+        </div>
         {selectedUser && (
-          <ScrollArea className="max-h-[60vh] p-4">
-            <div className="grid grid-cols-2 gap-6">
+          <ScrollArea className="max-h-[70vh]">
+            <div className="p-8 space-y-8">
+              {/* Personal Section */}
               <div className="space-y-4">
-                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">Full Name</Label><p className="font-bold">{selectedUser.full_name}</p></div>
-                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">Email</Label><p>{selectedUser.email}</p></div>
-                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">Domain</Label><p>{selectedUser.internship_domain}</p></div>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                  <User className="size-3" /> Personal Information
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Gender</Label><p className="text-sm font-bold">{selectedUser.gender || selectedUser.metadata?.gender || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Email</Label><p className="text-sm font-bold truncate">{selectedUser.email || selectedUser.user_email || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Contact</Label><p className="text-sm font-bold">{selectedUser.contact_number || selectedUser.user_phone || "—"}</p></div>
+                  <div className="md:col-span-2"><Label className="text-[9px] uppercase text-muted-foreground font-bold">Parent / Guardian</Label><p className="text-sm font-bold">{selectedUser.parent_name || selectedUser.metadata?.parentName || "—"}</p></div>
+                </div>
               </div>
+
+              <Separator className="bg-slate-100" />
+
+              {/* Academic Section */}
               <div className="space-y-4">
-                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">College</Label><p>{selectedUser.college_name}</p></div>
-                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">Roll No</Label><p>{selectedUser.roll_number}</p></div>
-                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">Joined</Label><p>{new Date(selectedUser.created_at).toLocaleDateString()}</p></div>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                  <GraduationCap className="size-3" /> Academic Details
+                </h4>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="col-span-2"><Label className="text-[9px] uppercase text-muted-foreground font-bold">University</Label><p className="text-sm font-bold">{selectedUser.university_name || selectedUser.metadata?.university || "—"}</p></div>
+                  <div className="col-span-2"><Label className="text-[9px] uppercase text-muted-foreground font-bold">College</Label><p className="text-sm font-bold">{selectedUser.college_name || selectedUser.metadata?.college || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Degree</Label><p className="text-sm font-bold">{selectedUser.degree || selectedUser.metadata?.degree || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Department</Label><p className="text-sm font-bold">{selectedUser.department || selectedUser.metadata?.department || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Subject</Label><p className="text-sm font-bold">{selectedUser.metadata?.subject || selectedUser.metadata?.subject || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Session</Label><p className="text-sm font-bold">{selectedUser.academic_session || selectedUser.metadata?.session || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Semester</Label><p className="text-sm font-bold">{selectedUser.class_semester || selectedUser.metadata?.semester || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Roll Number</Label><p className="text-sm font-bold">{selectedUser.roll_number || selectedUser.metadata?.rollNo || "—"}</p></div>
+                  <div className="col-span-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <Label className="text-[9px] uppercase text-primary font-bold">Internship Domain</Label>
+                    <p className="text-base font-black text-slate-900">{selectedUser.internship_domain || selectedUser.metadata?.course || "—"}</p>
+                  </div>
+                </div>
               </div>
+
+              <Separator className="bg-slate-100" />
+
+              {/* Emergency Section */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                  <Phone className="size-3" /> Emergency Contacts
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Contact Name</Label><p className="text-sm font-bold">{selectedUser.emergency_name || selectedUser.metadata?.emName || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Relationship</Label><p className="text-sm font-bold">{selectedUser.emergency_relation || selectedUser.metadata?.emRel || "—"}</p></div>
+                  <div><Label className="text-[9px] uppercase text-muted-foreground font-bold">Contact Phone</Label><p className="text-sm font-bold">{selectedUser.emergency_contact || selectedUser.metadata?.emPhone || "—"}</p></div>
+                </div>
+              </div>
+
+              {selectedUser.reason && (
+                <>
+                  <Separator className="bg-slate-100" />
+                  <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
+                    <Label className="text-[9px] uppercase text-red-600 font-bold">Lead Status / Payment Issue</Label>
+                    <p className="text-sm font-bold text-red-700">{selectedUser.reason}</p>
+                  </div>
+                </>
+              )}
             </div>
           </ScrollArea>
         )}
       </DialogContent></Dialog>
 
-      <SiteFooter />
+      <footer className="py-8 bg-slate-900 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800">
+        <div className="container mx-auto px-4 text-center">
+          <p>© {new Date().getFullYear()} EzyIntern Admin. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 };

@@ -5,8 +5,9 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, User, GraduationCap, Phone, ShieldCheck, Download, FileText, ExternalLink, Calendar, MapPin, Award, Briefcase, Mail, Globe, BookOpen, CheckCircle2 } from "lucide-react";
+import { Loader2, User, GraduationCap, Phone, ShieldCheck, Download, FileText, ExternalLink, Calendar, MapPin, Award, Briefcase, Mail, Globe, BookOpen, CheckCircle2, LogOut } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
@@ -176,9 +177,41 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <SiteNav />
-      <main className="flex-1 gradient-soft py-12">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-8 rounded-lg overflow-hidden bg-white border border-slate-100">
+              <img src="/logo.png" alt="EzyIntern" className="w-full h-full object-cover" />
+            </div>
+            <span className="font-bold text-slate-900 hidden sm:block">Student Portal</span>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-4">
+            <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2" onClick={() => {
+              const el = document.getElementById('profile-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }}>
+              <User className="size-4" />
+              <span className="hidden md:inline">Profile</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2" onClick={() => setIsOfferLetterOpen(true)}>
+              <FileText className="size-4" />
+              <span className="hidden md:inline">Offer Letter</span>
+            </Button>
+            <div className="w-px h-4 bg-slate-200 mx-1"></div>
+            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 gap-2" onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}>
+              <LogOut className="size-4" />
+              <span className="hidden md:inline">Logout</span>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 py-8 md:py-12">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
             <div className="flex items-center gap-5">
@@ -190,7 +223,7 @@ const Dashboard = () => {
                 <p className="text-muted-foreground mt-1 flex items-center gap-2">
                   <span className="flex items-center gap-1"><MapPin className="size-3" /> Student Dashboard</span>
                   <span className="size-1 rounded-full bg-muted-foreground/30"></span>
-                  <span className="text-primary font-medium">Session: {profile?.academic_session || "2024-25"}</span>
+                  <span className="text-primary font-medium">Registration ID: {profile?.registration_id || "—"}</span>
                 </p>
               </div>
             </div>
@@ -205,159 +238,192 @@ const Dashboard = () => {
                   <ShieldCheck className="size-4 text-primary" /> Admin Panel
                 </Button>
               )}
-              <Button variant="hero" className="gap-2" onClick={() => setIsOfferLetterOpen(true)}>
-                <FileText className="size-4" /> View Offer Letter
+              <Button variant="hero" className="gap-2 shadow-lg" onClick={() => setIsOfferLetterOpen(true)}>
+                <FileText className="size-4" /> Offer Letter
               </Button>
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6 mb-8">
-            <div className="lg:col-span-2 grid md:grid-cols-2 gap-6">
-              <Card className="p-8 shadow-elegant border-none bg-card/60 backdrop-blur-md relative overflow-hidden group">
+          <div id="profile-section" className="grid lg:grid-cols-3 gap-6 mb-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="p-8 shadow-elegant border-none bg-white relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <User className="size-20 text-primary" />
                 </div>
-                <h3 className="text-lg font-bold mb-5 flex items-center gap-2"><User className="size-5 text-primary" /> Personal Profile</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Full Name</p>
-                    <p className="text-sm font-medium">{profile?.full_name}</p>
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 border-b pb-4"><User className="size-5 text-primary" /> Personal Profile</h3>
+                <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Full Name</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.full_name || "—"}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Email</p>
-                    <p className="text-sm font-medium truncate">{profile?.email}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Email Address</p>
+                    <p className="text-sm font-bold text-slate-800 truncate">{profile?.email || "—"}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Contact</p>
-                    <p className="text-sm font-medium">{profile?.contact_number}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Contact Number</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.contact_number || "—"}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Gender</p>
-                    <p className="text-sm font-medium">{profile?.gender}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Gender</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.gender || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Parent / Guardian Name</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.parent_name || profile?.father_name || "—"}</p>
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-8 shadow-elegant border-none bg-card/60 backdrop-blur-md relative overflow-hidden group">
+              <Card className="p-8 shadow-elegant border-none bg-white relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <GraduationCap className="size-20 text-primary" />
                 </div>
-                <h3 className="text-lg font-bold mb-5 flex items-center gap-2"><GraduationCap className="size-5 text-primary" /> Academic Info</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">University</p>
-                    <p className="text-sm font-medium">{profile?.university_name || "—"}</p>
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 border-b pb-4"><GraduationCap className="size-5 text-primary" /> Academic Information</h3>
+                <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">University Name</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.university_name || "—"}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">College</p>
-                    <p className="text-sm font-medium">{profile?.college_name || "—"}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">College Name</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.college_name || "—"}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Course</p>
-                    <p className="text-sm font-medium">{profile?.course || "—"}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Degree Program</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.degree || "—"}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Roll No</p>
-                    <p className="text-sm font-medium">{profile?.roll_number || "—"}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Department</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.department || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Major / Subject</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.metadata?.subject || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Academic Session</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.academic_session || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Class / Semester</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.class_semester || profile?.class_sem || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">University Roll No</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.roll_number || "—"}</p>
+                  </div>
+                  <div className="space-y-1 md:col-span-2 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                    <p className="text-[10px] text-primary font-black uppercase tracking-widest">Internship Domain</p>
+                    <p className="text-base font-black text-primary">{profile?.course || profile?.internship_domain || "—"}</p>
                   </div>
                 </div>
               </Card>
             </div>
 
             <div className="space-y-6">
-              <Card className="p-8 shadow-elegant border-none bg-card/60 backdrop-blur-md">
-                <h3 className="text-lg font-bold mb-5 flex items-center gap-2"><Phone className="size-5 text-primary" /> Emergency</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Name</p>
-                      <p className="text-sm font-medium">{profile?.emergency_name || "—"}</p>
-                    </div>
-                    <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                      <User className="size-4" />
-                    </div>
+              <Card className="p-8 shadow-elegant border-none bg-white relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Phone className="size-20 text-primary" />
+                </div>
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 border-b pb-4"><Phone className="size-5 text-primary" /> Emergency Details</h3>
+                <div className="space-y-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Contact Name</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.emergency_name || "—"}</p>
                   </div>
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Phone</p>
-                      <p className="text-sm font-medium">{profile?.emergency_contact || "—"}</p>
-                    </div>
-                    <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                      <Phone className="size-4" />
-                    </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Contact Phone</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.emergency_contact || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Relationship</p>
+                    <p className="text-sm font-bold text-slate-800">{profile?.emergency_relation || "—"}</p>
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-6 border-none bg-gradient-to-br from-primary/10 to-accent/10 shadow-elegant">
+              <Card className="p-6 border-none bg-gradient-to-br from-primary to-accent text-white shadow-elegant">
                 <div className="flex items-start gap-4">
-                  <div className="size-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                    <Award className="size-6 text-primary" />
+                  <div className="size-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-sm">
+                    <Award className="size-6 text-white" />
                   </div>
                   <div>
                     <h4 className="font-bold text-sm">Status: Active</h4>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">You are currently enrolled in the internship program. Your progress is being tracked by our team.</p>
+                    <p className="text-xs text-white/80 mt-1 leading-relaxed">You are currently enrolled in the internship program. Your progress is being tracked by our team.</p>
                   </div>
+                </div>
+              </Card>
+
+              <Card className="p-8 shadow-elegant border-none bg-slate-900 text-white overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-8 opacity-20">
+                  <Briefcase className="size-20" />
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-xl font-bold mb-3">Support & Help</h3>
+                  <p className="text-slate-400 text-sm mb-6 max-w-sm">Need help with your internship or have questions about the portal? Our support team is here to assist you 24/7.</p>
+                  <Button variant="outline" className="border-slate-700 hover:bg-slate-800 text-white gap-2 w-full">
+                    <ExternalLink className="size-4" /> Contact Support
+                  </Button>
                 </div>
               </Card>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="p-8 shadow-elegant border-none bg-primary/5 overflow-hidden relative">
+          <div className="grid md:grid-cols-1 gap-6">
+            <Card className="p-8 shadow-elegant border-none bg-white overflow-hidden relative border-t-4 border-t-primary">
               <div className="absolute -bottom-6 -right-6 opacity-10">
                 <FileText className="size-32 text-primary" />
               </div>
               <div className="relative z-10">
-                <h3 className="text-xl font-bold mb-3">Your Documents</h3>
-                <p className="text-muted-foreground text-sm mb-6 max-w-sm">Access and download your official internship documents, including offer letters and certificates.</p>
+                <h3 className="text-2xl font-bold mb-3">Internship Documents</h3>
+                <p className="text-muted-foreground text-sm mb-8 max-w-2xl">Access and download your official internship documents. Your offer letter is available immediately, and your certificate will be generated upon successful completion of the program.</p>
                 <div className="flex flex-wrap gap-4">
-                  <Button variant="default" className="bg-primary hover:bg-primary/90 shadow-md gap-2" onClick={() => setIsOfferLetterOpen(true)}>
-                    <Download className="size-4" /> Download Offer Letter
+                  <Button variant="default" className="bg-primary hover:bg-primary/90 h-12 px-6 shadow-md gap-2" onClick={() => setIsOfferLetterOpen(true)}>
+                    <Download className="size-5" /> Download Offer Letter
                   </Button>
                   {isServiceEnabled('certificates') && (
                     cert ? (
-                      <Button variant="hero" className="gap-2" onClick={() => setIsCertOpen(true)}>
-                        <Award className="size-4" /> View Certificate
+                      <Button variant="hero" className="h-12 px-6 gap-2" onClick={() => setIsCertOpen(true)}>
+                        <Award className="size-5" /> View & Download Certificate
                       </Button>
                     ) : (
-                      <Button variant="outline" className="bg-white/50 backdrop-blur-sm border-border/50 gap-2 cursor-not-allowed opacity-50" disabled>
-                        <Download className="size-4" /> Internship Certificate
+                      <Button variant="outline" className="h-12 px-6 bg-slate-100 border-dashed border-slate-300 gap-2 cursor-not-allowed opacity-60 text-slate-500" disabled>
+                        <Award className="size-5" /> Certificate Not Ready
                       </Button>
                     )
                   )}
                 </div>
                 {isServiceEnabled('certificates') && (
-                  <>
-                    {!cert && <p className="text-[10px] text-muted-foreground mt-4 font-medium italic">* Certificates will be available after completion of internship.</p>}
-                    {cert && <p className="text-[10px] text-green-600 mt-4 font-bold flex items-center gap-1"><CheckCircle2 className="size-3" /> Your certificate is ready to download!</p>}
-                  </>
+                  <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    {!cert ? (
+                      <p className="text-sm text-slate-600 flex items-center gap-2">
+                        <Loader2 className="size-4 text-primary animate-spin" /> 
+                        Your internship is currently in progress. The certificate will be issued automatically after the evaluation phase.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-green-600 font-bold flex items-center gap-2">
+                        <CheckCircle2 className="size-4" /> 
+                        Congratulations! Your internship certificate has been issued and is ready for download.
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
-            </Card>
-
-            <Card className="p-8 shadow-elegant border-none bg-slate-900 text-white overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-8 opacity-20">
-                <Briefcase className="size-20" />
-              </div>
-              <div className="relative z-10">
-                <h3 className="text-xl font-bold mb-3">Support & Help</h3>
-                <p className="text-slate-400 text-sm mb-6 max-w-sm">Need help with your internship or have questions about the portal? Our support team is here to assist you 24/7.</p>
-                <Button variant="outline" className="border-slate-700 hover:bg-slate-800 text-white gap-2">
-                  <ExternalLink className="size-4" /> Contact Support
-                </Button>
               </div>
             </Card>
           </div>
 
-          {/* Live Intern Program Section */}
           {isServiceEnabled('live_classes') && (
-            <div className="mt-8">
-              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><BookOpen className="size-6 text-primary" /> Live Intern Program</h2>
+            <div className="mt-12">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold flex items-center gap-3"><BookOpen className="size-6 text-primary" /> Live Learning Sessions</h2>
+                <div className="h-px flex-1 mx-6 bg-slate-200 hidden md:block"></div>
+                <Badge variant="secondary" className="bg-primary/10 text-primary border-none">{liveClasses.length} Scheduled</Badge>
+              </div>
+
               {liveClasses.length > 0 ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {liveClasses.map(c => {
-                    // Handle different YouTube URL formats for embedding
                     let embedUrl = c.url;
                     if (c.link_type === 'youtube') {
                       if (c.url.includes('watch?v=')) {
@@ -368,13 +434,13 @@ const Dashboard = () => {
                     }
 
                     return (
-                      <Card key={c.id} className="overflow-hidden border-none shadow-elegant flex flex-col group hover:-translate-y-1 transition-transform duration-300">
-                        <div className="p-2 text-xs text-center font-bold text-white uppercase tracking-widest bg-gradient-to-r from-primary to-accent shadow-inner">
+                      <Card key={c.id} className="overflow-hidden border-none shadow-elegant flex flex-col group hover:-translate-y-2 transition-all duration-500 bg-white">
+                        <div className="p-3 text-[10px] text-center font-black text-white uppercase tracking-[0.2em] bg-slate-900">
                           {new Date(c.scheduled_at).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' })}
                         </div>
                         
                         {c.link_type === 'youtube' ? (
-                          <div className="relative w-full aspect-video bg-black">
+                          <div className="relative w-full aspect-video bg-black shadow-inner">
                             <iframe 
                               src={embedUrl} 
                               className="absolute inset-0 w-full h-full border-0" 
@@ -383,25 +449,33 @@ const Dashboard = () => {
                             ></iframe>
                           </div>
                         ) : (
-                          <div className="w-full aspect-video bg-blue-50 flex items-center justify-center flex-col gap-3 p-6 text-center border-b border-blue-100">
-                            <div className="size-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
+                          <div className="w-full aspect-video bg-indigo-50 flex items-center justify-center flex-col gap-3 p-6 text-center border-b border-indigo-100">
+                            <div className="size-16 rounded-full bg-white flex items-center justify-center text-primary shadow-elegant group-hover:scale-110 transition-transform duration-500">
                               <ExternalLink className="size-8" />
                             </div>
-                            <p className="font-bold text-sm text-blue-800">Google Meet Class</p>
+                            <p className="font-bold text-sm text-indigo-900">Live Virtual Session</p>
                           </div>
                         )}
                         
-                        <div className="p-6 flex flex-col flex-1 bg-white">
-                          <Badge variant="secondary" className="w-fit mb-3 text-[10px] px-2 py-0.5">{c.internship_domains?.name || "All Interns"}</Badge>
-                          <h3 className="font-bold text-lg leading-snug mb-4 flex-1">{c.title}</h3>
+                        <div className="p-6 flex flex-col flex-1">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">{c.internship_domains?.name || "General"}</span>
+                            <span className="size-1 rounded-full bg-slate-300"></span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{c.link_type} Session</span>
+                          </div>
+                          <h3 className="font-bold text-lg leading-tight mb-6 flex-1 text-slate-900">{c.title}</h3>
                           
                           {c.link_type === 'meet' ? (
                             <a href={c.url} target="_blank" rel="noreferrer" className="w-full block">
-                              <Button className="w-full gap-2 shadow-sm hover:shadow-md transition-shadow"><ExternalLink className="size-4" /> Join Google Meet</Button>
+                              <Button className="w-full h-11 bg-primary hover:bg-primary/90 gap-2 shadow-lg transition-all"><ExternalLink className="size-4" /> Join Live Meeting</Button>
                             </a>
                           ) : (
-                            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">
-                              <span className="size-2 rounded-full bg-red-500 animate-pulse"></span> Live Video Class
+                            <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 border border-red-100">
+                              <span className="relative flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                              </span>
+                              <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Live Learning Session</span>
                             </div>
                           )}
                         </div>
@@ -410,10 +484,12 @@ const Dashboard = () => {
                   })}
                 </div>
               ) : (
-                <Card className="p-12 text-center border-none shadow-elegant bg-white/50 backdrop-blur-sm">
-                  <BookOpen className="size-16 text-primary mx-auto mb-4 opacity-20" />
-                  <h3 className="text-xl font-bold text-slate-700">No Upcoming Classes</h3>
-                  <p className="text-slate-500 text-sm max-w-sm mx-auto mt-2">There are currently no live sessions scheduled for your internship domain. Check back later!</p>
+                <Card className="p-16 text-center border-none shadow-elegant bg-white/80 backdrop-blur-sm">
+                  <div className="size-20 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <BookOpen className="size-10 text-slate-300" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-800">Stay Tuned for Classes</h3>
+                  <p className="text-slate-500 text-sm max-w-sm mx-auto mt-3 leading-relaxed">There are currently no live sessions scheduled for your internship domain. We'll update this section soon!</p>
                 </Card>
               )}
             </div>
@@ -422,7 +498,12 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* Offer Letter Dialog */}
+      <footer className="py-8 bg-slate-900 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800">
+        <div className="container mx-auto px-4 text-center">
+          <p>© {new Date().getFullYear()} EzyIntern Portal. All rights reserved.</p>
+        </div>
+      </footer>
+
       <Dialog open={isOfferLetterOpen} onOpenChange={setIsOfferLetterOpen}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden shadow-2xl border-none">
           <DialogHeader className="p-6 bg-muted/30 border-b flex flex-row items-center justify-between space-y-0">

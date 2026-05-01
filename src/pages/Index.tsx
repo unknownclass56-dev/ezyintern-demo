@@ -118,7 +118,7 @@ const Index = () => {
       `}</style>
       {/* Announcement Banner */}
       <div className="bg-primary py-2.5 px-4 text-center text-[13px] font-medium text-white">
-        🎓 Registrations Open for 2023–2027 Batch — ISO 9001:2015 Certified · MCA Registered &nbsp;
+        🎓 Registrations Open for 2023–2027 Batch &nbsp;
         <Link to="/register" className="text-blue-200 underline hover:text-white transition-colors">Register Now →</Link>
       </div>
 
@@ -151,7 +151,7 @@ const Index = () => {
               </div>
               
           <div className="flex flex-wrap gap-3">
-            {["MCA Registered", "MSME Certified", "ISO Certified", "AICTE Compliant", "UGC Compliant"].map((tag) => (
+            {["MSME Certified", "AICTE Compliant", "UGC Compliant"].map((tag) => (
               <div key={tag} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-slate-700 shadow-sm">
                 <CheckCircle2 className="size-4 text-primary" /> {tag}
               </div>
@@ -372,14 +372,16 @@ const Index = () => {
           <p className="text-lg opacity-80 mb-10 max-w-2xl mx-auto">Join 12,000+ students who have already earned their verified internship certificate with EzyIntern.</p>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-12">
           {[
-            { t: "AICTE Registered", c: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
-            { t: "ISO 9001:2015", c: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-            { t: "MSME Certified", c: "bg-green-500/10 text-green-400 border-green-500/20" },
-            { t: "MCA Registered", c: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
-            { t: "UGC Compliant", c: "bg-pink-500/10 text-pink-400 border-pink-500/20" }
+            { t: "AICTE Registered", c: "bg-orange-500/10 text-orange-400 border-orange-500/20", img: "aicte_logo.png" },
+            { t: "ISO 9001:2015", c: "bg-blue-500/10 text-blue-400 border-blue-500/20", img: "iso_logo.png" },
+            { t: "MSME Certified", c: "bg-green-500/10 text-green-400 border-green-500/20", img: "msme_logo.png" },
+            { t: "MCA Registered", c: "bg-purple-500/10 text-purple-400 border-purple-500/20", img: "mca_logo.png" },
+            { t: "UGC Compliant", c: "bg-pink-500/10 text-pink-400 border-pink-500/20", img: "ugc_logo.png" }
           ].map((b, i) => (
-            <div key={i} className={`flex flex-col items-center justify-center p-4 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 ${b.c}`}>
-              <CheckCircle2 className="size-5 mb-2" />
+            <div key={i} className={`flex flex-col items-center justify-center p-6 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 ${b.c}`}>
+              <div className="size-12 flex items-center justify-center p-2 bg-white rounded-xl mb-4 shadow-sm">
+                <img src={`/certifications/${b.img}`} alt={b.t} className="max-h-full max-w-full object-contain" />
+              </div>
               <span className="text-[11px] font-black uppercase tracking-wider text-center leading-tight">{b.t}</span>
             </div>
           ))}
