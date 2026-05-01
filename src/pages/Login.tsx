@@ -174,9 +174,9 @@ const Login = () => {
                   <Checkbox checked={remember} onCheckedChange={(v) => setRemember(!!v)} />
                   <span>Remember me</span>
                 </label>
-                <a href="#" className="text-primary font-medium hover:underline" onClick={handleSendOtp}>
-                  Forgot password?
-                </a>
+                <span className="text-muted-foreground text-xs italic" title="Please contact the administrator to reset your password">
+                  Forgot password? Contact admin
+                </span>
               </div>
 
               <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>

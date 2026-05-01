@@ -499,11 +499,7 @@ const Dashboard = () => {
         </div>
       </main>
 
-      <footer className="py-8 bg-slate-900 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800">
-        <div className="container mx-auto px-4 text-center">
-          <p>© {new Date().getFullYear()} EzyIntern Portal. All rights reserved.</p>
-        </div>
-      </footer>
+
 
       <Dialog open={isOfferLetterOpen} onOpenChange={setIsOfferLetterOpen}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden shadow-2xl border-none">
