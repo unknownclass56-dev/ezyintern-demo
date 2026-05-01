@@ -221,7 +221,7 @@ const Dashboard = () => {
               <div>
                 <h1 className="text-3xl md:text-5xl font-bold tracking-tight">Howdy, {profile?.full_name?.split(" ")[0]}!</h1>
                 <p className="text-muted-foreground mt-1 flex items-center gap-2">
-                  <span className="flex items-center gap-1"><MapPin className="size-3" /> Student Dashboard</span>
+                  <span className="flex items-center gap-1">Student Dashboard</span>
                   <span className="size-1 rounded-full bg-muted-foreground/30"></span>
                   <span className="text-primary font-medium">Registration ID: {profile?.registration_id || "—"}</span>
                 </p>
@@ -716,7 +716,7 @@ const Dashboard = () => {
                           <span className="text-[#5AA3E6] font-black tracking-wide">{cert?.certificate_id || `CERT-${(profile?.id || '0').substring(0, 8).toUpperCase()}`}</span>
                         </p>
                         <p className="text-slate-800 flex items-center">
-                          <span className="font-bold w-20">Date of Issue</span> 
+                          <span className="font-bold w-24">Date of Issue</span> 
                           <span className="font-black mx-1">:</span>
                           <span className="text-[#5AA3E6] font-black">{new Date().toLocaleDateString('en-GB')}</span>
                         </p>
