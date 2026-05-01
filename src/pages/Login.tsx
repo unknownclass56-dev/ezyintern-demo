@@ -70,22 +70,42 @@ const Login = () => {
   const handleSendOtp = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!email) {
-      toast.error("Please enter your email first");
+      toast.error("Please enter your email or mobile number first");
       return;
     }
+    
+    const isEmail = email.includes("@");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({ 
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+    
+    try {
+      if (isEmail) {
+        const { error } = await supabase.auth.signInWithOtp({ 
+          email: email.trim(),
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          }
+        });
+        if (error) throw error;
+        toast.success("6-digit code sent to your email!");
+      } else {
+        // Basic phone cleanup (remove spaces, etc)
+        const phone = email.replace(/\s+/g, '');
+        const { error } = await supabase.auth.signInWithOtp({ 
+          phone: phone.startsWith('+') ? phone : `+91${phone}`, // Default to India if no prefix
+        });
+        if (error) throw error;
+        toast.success("6-digit code sent to your mobile!");
       }
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
       setShowOtp(true);
-      toast.success("6-digit code sent to your email!");
+    } catch (error: any) {
+      console.error("OTP Error:", error);
+      if (error.message.includes("rate limit") || error.message.includes("limit exceeded")) {
+        toast.error("Security limit reached. Please try again in 1 hour or check your Supabase SMTP settings.");
+      } else {
+        toast.error(error.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,17 +115,23 @@ const Login = () => {
       return;
     }
     setIsVerifying(true);
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: otpValue,
-      type: 'magiclink',
-    });
-    setIsVerifying(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
+    const isEmail = email.includes("@");
+    
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        [isEmail ? 'email' : 'phone']: email.trim().startsWith('+') || isEmail ? email.trim() : `+91${email.trim()}`,
+        token: otpValue,
+        type: isEmail ? 'email' : 'sms',
+      });
+      
+      if (error) throw error;
+      
       toast.success("Welcome back!");
       navigate("/dashboard");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsVerifying(false);
     }
   };
 

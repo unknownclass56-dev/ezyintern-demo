@@ -193,11 +193,11 @@ const Dashboard = () => {
               el?.scrollIntoView({ behavior: 'smooth' });
             }}>
               <User className="size-4" />
-              <span className="hidden md:inline">Profile</span>
+              <span className="">Profile</span>
             </Button>
             <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2" onClick={() => setIsOfferLetterOpen(true)}>
               <FileText className="size-4" />
-              <span className="hidden md:inline">Offer Letter</span>
+              <span className="">Offer Letter</span>
             </Button>
             <div className="w-px h-4 bg-slate-200 mx-1"></div>
             <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 gap-2" onClick={async () => {
@@ -205,9 +205,10 @@ const Dashboard = () => {
               navigate("/login");
             }}>
               <LogOut className="size-4" />
-              <span className="hidden md:inline">Logout</span>
+              <span className="">Logout</span>
             </Button>
           </div>
+
         </div>
       </header>
 

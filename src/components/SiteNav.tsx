@@ -60,24 +60,65 @@ export const SiteNav = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Mobile Menu */}
+          <div className="md:hidden">
+            <Button variant="ghost" size="icon" onClick={() => {
+              const el = document.getElementById('mobile-menu');
+              if (el) el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
+            }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+            </Button>
+          </div>
+
+          <div className="hidden md:flex items-center gap-2">
+            {isAuthed ? (
+              <>
+                {isSuperAdmin ? (
+                  <Button variant="accent" size="sm" onClick={() => navigate("/super-admin")}>Super Admin</Button>
+                ) : (
+                  isAdmin && <Button variant="accent" size="sm" onClick={() => navigate("/admin")}>Admin Panel</Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>Dashboard</Button>
+                <Button variant="ghost" size="sm" onClick={logout}>Logout</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={() => navigate("/login")}>Login</Button>
+                <Button variant="accent" size="sm" onClick={() => navigate("/register")}>Register</Button>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Menu Dropdown */}
+      <div id="mobile-menu" className="hidden flex-col bg-background border-b p-4 space-y-4 shadow-lg absolute w-full left-0 top-[64px]">
+        <Link to="/" className="text-muted-foreground font-medium">Home</Link>
+        <a href="/#why" className="text-muted-foreground font-medium">Why Join</a>
+        <Link to="/benefits" className="text-muted-foreground font-medium">Benefits</Link>
+        <a href="/#universities" className="text-muted-foreground font-medium">Universities</a>
+        <Link to="/verify" className="text-muted-foreground font-medium">Verify</Link>
+        <Link to="/contact" className="text-muted-foreground font-medium">Contact</Link>
+        
+        <div className="pt-4 border-t flex flex-col gap-2">
           {isAuthed ? (
             <>
               {isSuperAdmin ? (
-                <Button variant="accent" size="sm" onClick={() => navigate("/super-admin")}>Super Admin</Button>
+                <Button variant="accent" className="w-full" onClick={() => navigate("/super-admin")}>Super Admin</Button>
               ) : (
-                isAdmin && <Button variant="accent" size="sm" onClick={() => navigate("/admin")}>Admin Panel</Button>
+                isAdmin && <Button variant="accent" className="w-full" onClick={() => navigate("/admin")}>Admin Panel</Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>Dashboard</Button>
-              <Button variant="ghost" size="sm" onClick={logout}>Logout</Button>
+              <Button variant="outline" className="w-full" onClick={() => navigate("/dashboard")}>Dashboard</Button>
+              <Button variant="ghost" className="w-full" onClick={logout}>Logout</Button>
             </>
           ) : (
             <>
-              <Button variant="outline" size="sm" onClick={() => navigate("/login")}>Login</Button>
-              <Button variant="accent" size="sm" onClick={() => navigate("/register")}>Register</Button>
+              <Button variant="outline" className="w-full" onClick={() => navigate("/login")}>Login</Button>
+              <Button variant="accent" className="w-full" onClick={() => navigate("/register")}>Register</Button>
             </>
           )}
         </div>
-      </nav>
+      </div>
     </header>
   );
 };
