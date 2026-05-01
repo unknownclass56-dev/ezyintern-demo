@@ -534,54 +534,53 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex justify-between text-[13px] font-bold mb-6 relative z-10">
-                  <p>Letter Ref. No.: <span className="font-black">EZY/2026/PY/{profile?.registration_id?.split('-').pop() || "XXXX"}</span></p>
-                  <p>Date: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                  <p>Letter Ref. No.: <span className="font-black text-slate-900">EZY/2026/INT/{10000 + (parseInt(profile?.registration_id?.split('-').pop() || "0", 16) % 1000) + 1}</span></p>
+                  <p>Date: <span className="font-bold text-slate-900">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span></p>
                 </div>
 
-                <div className="text-[13px] space-y-1 mb-6 relative z-10">
+                <div className="text-[14px] space-y-1 mb-8 relative z-10">
                   <p>To,</p>
-                  <p className="font-bold uppercase">{profile?.full_name}</p>
-                  <p>University Roll Number</p>
-                  <p className="font-bold">{profile?.roll_number}</p>
-                  <p>{profile?.college_name}</p>
-                  <p>Bihar, India</p>
+                  <p className="font-bold text-slate-900 uppercase">{profile?.full_name}</p>
+                  <p>University Roll Number: <span className="font-bold">{profile?.roll_number}</span></p>
+                  <p>College / Institution: <span className="font-bold">{profile?.college_name}</span></p>
                 </div>
 
-                <div className="text-[14px] space-y-4 relative z-10">
+                <div className="text-[14px] space-y-4 relative z-10 leading-relaxed">
                   <p className="font-bold">Dear Candidate,</p>
-                  <p className="text-justify leading-relaxed">
-                    We are pleased to accept your application and formally offer you an internship at <span className="font-black">EZYINTERN SDP TECHNOLOGY PRIVATE LIMITED (EzyIntern)</span>. 
-                    Our organisation satisfies all requirements as provided in the <span className="font-black">"LNMU Internship Guidelines for Undergraduate Programmes"</span> issued by Lalit Narayan Mithila University, Darbhanga.
+                  <p className="text-justify">
+                    We are pleased to accept your application and formally offer you an internship at <span className="font-bold">Ezyintern SDP Technology Private Limited (Ezyintern)</span>. 
+                    Our internship programmes are designed in full alignment with <span className="font-bold">NEP-2020, AICTE and UGC Internship Guidelines</span>, and your university's specific internship framework.
                   </p>
 
-                  <div className="py-2 space-y-1.5">
+                  <div className="py-4 space-y-2">
+                    <p className="font-bold mb-2">Your internship details are as follows:</p>
                     {[
                       { l: "Name of the Student", v: profile?.full_name },
                       { l: "University Roll Number", v: profile?.roll_number },
                       { l: "College / Institution", v: profile?.college_name },
-                      { l: "Programme & Semester", v: `${profile?.degree} — ${profile?.class_sem || "Semester V"}` },
-                      { l: "Internship Domain", v: profile?.course || "Practical Training" },
-                      { l: "Internship Duration", v: "120 Hours (as per LNMU Guidelines)" },
-                      { l: "Mode of Internship", v: "Online / Practical (as approved by College)" },
-                      { l: "Internship Start Date", v: new Date().toLocaleDateString('en-GB') },
-                      { l: "Expected End Date", v: new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-GB') },
-                      { l: "Supervisor / Mentor Name", v: "Name of Assigned Mentor" },
+                      { l: "Department & Semester", v: `${profile?.department || profile?.degree} — ${profile?.class_semester || profile?.class_sem || "Semester V"}` },
+                      { l: "Internship Domain", v: profile?.course || profile?.internship_domain || "General Training" },
+                      { l: "Internship Duration", v: "120 Hours" },
+                      { l: "Mode of Internship", v: "Online (as approved by College)" },
+                      { l: "Internship Start Date", v: new Date(profile?.created_at || Date.now()).toLocaleDateString('en-GB') },
+                      { l: "Expected End Date", v: new Date(new Date(profile?.created_at || Date.now()).getTime() + 30*24*60*60*1000).toLocaleDateString('en-GB') },
                       { l: "Stipend", v: "Not Applicable — Academic Programme" }
                     ].map((row, i) => (
-                      <div key={i} className="grid grid-cols-[200px_20px_1fr] items-start">
-                        <span className="font-bold text-slate-800">• {row.l}</span>
-                        <span className="font-bold">:</span>
+                      <div key={i} className="grid grid-cols-[220px_20px_1fr] items-start">
+                        <span className="text-slate-800">• {row.l}</span>
+                        <span className="">:</span>
                         <span className="font-bold text-slate-900">{row.v}</span>
                       </div>
                     ))}
                   </div>
 
-                  <p className="text-justify leading-relaxed">
-                    The student is requested to report to us as per the schedule above and bring this letter along with the Consent Letter issued by the College. 
-                    The student must inform the <span className="font-black">College Internship Nodal Officer (CINO)</span> upon receiving this acceptance letter, as per LNMU norms.
+                  <p className="text-justify">
+                    Please report to us on your start date as per the schedule above and bring this letter along with the <span className="font-bold">Consent Letter</span> issued by your College. 
+                    We also request that you inform your <span className="font-bold">College Internship Nodal Officer (CINO)</span> upon receiving this acceptance letter. 
+                    During the programme, you are required to maintain the minimum required attendance and complete all tasks and assignments given by your mentor.
                   </p>
 
-                  <p className="leading-relaxed">We look forward to a meaningful and enriching internship experience. We appreciate your interest in EzyIntern.</p>
+                  <p className="">We look forward to a meaningful and enriching internship experience and appreciate your interest in <span className="font-bold">Ezyintern</span>.</p>
 
                   <div className="mt-auto pt-6 -mx-[12mm] md:-mx-[15mm] -mb-[12mm] md:-mb-[15mm] relative z-10">
                     <img src="/offer-letter-footer.png" alt="Official Signature and Accreditations" className="w-full h-auto block" />
@@ -707,9 +706,14 @@ const Dashboard = () => {
                       {/* Text Info */}
                       <div className="text-[11px] leading-snug space-y-1">
                         <p className="text-slate-800 flex items-center">
-                          <span className="font-bold w-20">Certificate ID</span> 
+                          <span className="font-bold w-24">Reference No.</span> 
                           <span className="font-black mx-1">:</span>
-                          <span className="text-[#5AA3E6] font-black tracking-wide">{cert?.certificate_id || 'EZY/2026/PPU/1001'}</span>
+                          <span className="text-[#5AA3E6] font-black tracking-wide">EZY/2026/INT/{10000 + (parseInt(profile?.registration_id?.split('-').pop() || "0", 16) % 1000) + 1}</span>
+                        </p>
+                        <p className="text-slate-800 flex items-center">
+                          <span className="font-bold w-24">Certificate ID</span> 
+                          <span className="font-black mx-1">:</span>
+                          <span className="text-[#5AA3E6] font-black tracking-wide">{cert?.certificate_id || `CERT-${(profile?.id || '0').substring(0, 8).toUpperCase()}`}</span>
                         </p>
                         <p className="text-slate-800 flex items-center">
                           <span className="font-bold w-20">Date of Issue</span> 

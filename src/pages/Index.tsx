@@ -372,10 +372,10 @@ const Index = () => {
           <p className="text-lg opacity-80 mb-10 max-w-2xl mx-auto">Join 12,000+ students who have already earned their verified internship certificate with EzyIntern.</p>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-12">
           {[
-            { t: "AICTE Registered", c: "bg-orange-500/10 text-orange-400 border-orange-500/20", img: "aicte_logo.png" },
-            { t: "ISO 9001:2015", c: "bg-blue-500/10 text-blue-400 border-blue-500/20", img: "iso_logo.png" },
-            { t: "MSME Certified", c: "bg-green-500/10 text-green-400 border-green-500/20", img: "msme_logo.png" },
             { t: "MCA Registered", c: "bg-purple-500/10 text-purple-400 border-purple-500/20", img: "mca_logo.png" },
+            { t: "MSME Certified", c: "bg-green-500/10 text-green-400 border-green-500/20", img: "msme_logo.png" },
+            { t: "ISO 9001:2015", c: "bg-blue-500/10 text-blue-400 border-blue-500/20", img: "iso_logo.png" },
+            { t: "AICTE Registered", c: "bg-orange-500/10 text-orange-400 border-orange-500/20", img: "aicte_logo.png" },
             { t: "UGC Compliant", c: "bg-pink-500/10 text-pink-400 border-pink-500/20", img: "ugc_logo.png" }
           ].map((b, i) => (
             <div key={i} className={`flex flex-col items-center justify-center p-6 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 ${b.c}`}>
