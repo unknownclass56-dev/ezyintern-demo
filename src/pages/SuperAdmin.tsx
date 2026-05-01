@@ -18,7 +18,7 @@ import {
   Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, 
   Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, 
   Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, 
-  ToggleRight, TrendingUp, Activity, DollarSign
+  ToggleRight, TrendingUp, Activity, DollarSign, Clock
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -44,6 +44,11 @@ const SuperAdmin = () => {
   const [payments, setPayments] = useState<any[]>([]);
   const [cancelledPayments, setCancelledPayments] = useState<any[]>([]);
   const [paymentConfig, setPaymentConfig] = useState<any>(null);
+  const [adminLogs, setAdminLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsPage, setLogsPage] = useState(0);
+  const [logsTotalCount, setLogsTotalCount] = useState(0);
+  const [logsSearchTerm, setLogsSearchTerm] = useState("");
 
   // Selection & Filters
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -96,6 +101,52 @@ const SuperAdmin = () => {
   const [newClassUrl, setNewClassUrl] = useState("");
   const [newClassSchedule, setNewClassSchedule] = useState("");
   const [newClassDomain, setNewClassDomain] = useState("all");
+
+  const logAdminAction = async (action_type: string, entity_type: string, description: string, metadata: any = {}) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await supabase.from("admin_logs").insert({
+        user_id: session.user.id,
+        admin_email: session.user.email,
+        action_type,
+        entity_type,
+        description,
+        metadata,
+        created_at: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("Log Action Error:", err);
+    }
+  };
+
+  const fetchLogs = async () => {
+    setLogsLoading(true);
+    try {
+      let query = supabase
+        .from("admin_logs")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (logsSearchTerm) {
+        query = query.or(`admin_email.ilike.%${logsSearchTerm}%,description.ilike.%${logsSearchTerm}%,action_type.ilike.%${logsSearchTerm}%,entity_type.ilike.%${logsSearchTerm}%`);
+      }
+
+      const from = logsPage * pageSize;
+      const to = from + pageSize - 1;
+      
+      const { data, count, error } = await query.range(from, to);
+      if (error) throw error;
+
+      setAdminLogs(data || []);
+      setLogsTotalCount(count || 0);
+    } catch (err) {
+      console.error("Fetch Logs Error:", err);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
 
   const fetchStudents = async () => {
     setIsStudentsLoading(true);
@@ -193,7 +244,10 @@ const SuperAdmin = () => {
       setCancelledPayments(pcan.data || []);
 
       // Initial students fetch
-      await fetchStudents();
+      await Promise.all([
+        fetchStudents(),
+        fetchLogs()
+      ]);
     } catch (err) {
       console.error("Load Error:", err);
     } finally {
@@ -206,6 +260,12 @@ const SuperAdmin = () => {
       fetchStudents();
     }
   }, [studentPage, searchTerm, domainFilter, dateFilter]);
+
+  useEffect(() => {
+    if (allowed) {
+      fetchLogs();
+    }
+  }, [logsPage, logsSearchTerm]);
 
   useEffect(() => {
     (async () => {
@@ -240,6 +300,13 @@ const SuperAdmin = () => {
       const { error } = await supabase.from("certificates").insert(issues);
       if (error) throw error;
 
+      await logAdminAction(
+        'BULK_ACTION', 
+        'certificate', 
+        `Issued ${selectedStudents.length} certificates for ${certProgram}`,
+        { student_count: selectedStudents.length, program: certProgram, duration: certDuration }
+      );
+
       toast.success(`Successfully generated ${selectedStudents.length} certificates!`);
       setSelectedStudents([]);
       loadAll();
@@ -263,13 +330,30 @@ const SuperAdmin = () => {
   const toggleBlock = async (user: any) => {
     const newStatus = user.status === "Blocked" ? "Active" : "Blocked";
     await supabase.from("students").update({ status: newStatus }).eq("id", user.id);
+    
+    await logAdminAction(
+      'UPDATE', 
+      'student', 
+      `${newStatus === "Blocked" ? "Blocked" : "Unblocked"} student ${user.full_name}`,
+      { student_id: user.id, status: newStatus }
+    );
+
     toast.success(`User ${newStatus}`);
     loadAll();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure?")) return;
+    const user = students.find(s => s.id === id) || staff.find(s => s.id === id);
     await supabase.from("students").delete().eq("id", id);
+    
+    await logAdminAction(
+      'DELETE', 
+      'student', 
+      `Deleted student/staff ${user?.full_name || id}`,
+      { entity_id: id, name: user?.full_name }
+    );
+
     toast.success("Deleted");
     loadAll();
   };
@@ -279,12 +363,19 @@ const SuperAdmin = () => {
   const addDomain = async () => {
     if (!newDomain.trim()) return;
     await supabase.from("internship_domains").insert({ name: newDomain.trim() });
+    
+    await logAdminAction('CREATE', 'domain', `Added internship domain: ${newDomain.trim()}`);
+    
     setNewDomain(""); loadAll();
   };
 
   const delDomain = async (id: string) => {
     if (!confirm("Delete domain?")) return;
+    const domain = domains.find(d => d.id === id);
     await supabase.from("internship_domains").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'domain', `Deleted internship domain: ${domain?.name || id}`);
+    
     loadAll();
   };
 
@@ -292,24 +383,39 @@ const SuperAdmin = () => {
     if (!newUni.trim()) return;
     const logo = prompt("Enter University Logo URL (optional):") || "";
     await supabase.from("universities").insert({ name: newUni.trim(), logo_url: logo });
+    
+    await logAdminAction('CREATE', 'university', `Added university: ${newUni.trim()}`);
+    
     setNewUni(""); loadAll();
   };
 
   const delUni = async (id: string) => {
     if (!confirm("Delete university?")) return;
+    const uni = unis.find(u => u.id === id);
     await supabase.from("universities").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'university', `Deleted university: ${uni?.name || id}`);
+    
     loadAll();
   };
 
   const addCollege = async () => {
     if (!newCollege.trim() || !collegeUni) return toast.error("Enter name and select university");
     await supabase.from("colleges").insert({ name: newCollege.trim(), university_id: collegeUni });
+    
+    const uniName = unis.find(u => u.id === collegeUni)?.name;
+    await logAdminAction('CREATE', 'college', `Added college: ${newCollege.trim()} to ${uniName}`);
+    
     setNewCollege(""); loadAll();
     toast.success("College added");
   };
 
   const delCollege = async (id: string) => {
+    const college = colleges.find(c => c.id === id);
     await supabase.from("colleges").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'college', `Deleted college: ${college?.name || id}`);
+    
     toast.success("College removed");
     loadAll();
   };
@@ -319,6 +425,9 @@ const SuperAdmin = () => {
     const { error } = await supabase.from("departments").insert({ name: newDept, college_id: deptCollege });
     if (error) toast.error("Error adding department");
     else {
+      const collegeName = colleges.find(c => c.id === deptCollege)?.name;
+      await logAdminAction('CREATE', 'department', `Added department: ${newDept} to ${collegeName}`);
+      
       setNewDept("");
       toast.success("Department added");
       loadAll();
@@ -326,7 +435,11 @@ const SuperAdmin = () => {
   };
 
   const delDept = async (id: string) => {
+    const dept = departments.find(d => d.id === id);
     await supabase.from("departments").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'department', `Deleted department: ${dept?.name || id}`);
+    
     toast.success("Department removed");
     loadAll();
   };
@@ -353,6 +466,8 @@ const SuperAdmin = () => {
       if (resetOptions.domains) tasks.push(supabase.from("internship_domains").delete().neq("id", "00000000-0000-0000-0000-000000000000"));
       
       await Promise.all(tasks);
+      
+      await logAdminAction('SYSTEM_RESET', 'platform', `Platform data reset performed for: ${Object.entries(resetOptions).filter(([_, v]) => v).map(([k, _]) => k).join(', ')}`, { resetOptions });
       
       toast.success("Selected data has been reset");
       setIsResetDialogOpen(false);
@@ -410,6 +525,8 @@ const SuperAdmin = () => {
             console.error("Supabase Insert Error:", error);
             throw error;
           }
+
+          await logAdminAction('BULK_ACTION', 'college', `Bulk uploaded ${collegeNames.length} colleges to ${selectedUniName}`, { university_id: collegeUni, count: collegeNames.length });
 
           toast.success(`Successfully added ${collegeNames.length} colleges to ${selectedUniName}!`);
           await loadAll();
@@ -475,6 +592,9 @@ const SuperAdmin = () => {
         scheduled_at: new Date(newClassSchedule).toISOString(),
         domain_id: newClassDomain === "all" ? null : newClassDomain
       });
+
+      await logAdminAction('CREATE', 'class', `Scheduled class: ${newClassTitle}`, { title: newClassTitle, schedule: newClassSchedule });
+
       toast.success("Class Scheduled!");
       setNewClassTitle(""); setNewClassUrl(""); setNewClassSchedule("");
       loadAll();
@@ -485,7 +605,11 @@ const SuperAdmin = () => {
 
   const delClass = async (id: string) => {
     if (!confirm("Delete this scheduled class?")) return;
+    const cl = classesList.find(c => c.id === id);
     await supabase.from("classes").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'class', `Deleted scheduled class: ${cl?.title || id}`);
+    
     toast.success("Class deleted");
     loadAll();
   };
@@ -493,6 +617,9 @@ const SuperAdmin = () => {
   const toggleClassActive = async (cl: any) => {
     const newStatus = !cl.is_active;
     await supabase.from("classes").update({ is_active: newStatus }).eq("id", cl.id);
+    
+    await logAdminAction('UPDATE', 'class', `${newStatus ? "Enabled" : "Disabled"} class: ${cl.title}`, { class_id: cl.id, active: newStatus });
+    
     toast.success(newStatus ? "Class enabled — students can now see it" : "Class disabled — hidden from students");
     loadAll();
   };
@@ -504,6 +631,9 @@ const SuperAdmin = () => {
       if (!user) return toast.error("User not found in platform");
       
       await supabase.from("user_roles").insert({ user_id: user.id, role: 'admin' });
+      
+      await logAdminAction('CREATE', 'staff', `Granted admin access to ${staffEmail}`, { user_id: user.id, email: staffEmail });
+      
       toast.success("Staff access granted!");
       setStaffEmail("");
       setIsAddStaffOpen(false);
@@ -513,7 +643,11 @@ const SuperAdmin = () => {
 
   const removeStaff = async (id: string) => {
     if (!confirm("Remove this person from staff?")) return;
+    const s = staff.find(x => x.id === id);
     await supabase.from("user_roles").delete().eq("user_id", id).eq("role", "admin");
+    
+    await logAdminAction('DELETE', 'staff', `Revoked admin access for ${s?.full_name || id}`, { user_id: id, name: s?.full_name });
+    
     toast.success("Staff access revoked");
     loadAll();
   };
@@ -528,6 +662,10 @@ const SuperAdmin = () => {
       } else {
         await supabase.from("admin_permissions").insert({ user_id: userId, [permKey]: newVal });
       }
+
+      const s = staff.find(x => x.id === userId);
+      await logAdminAction('UPDATE', 'permissions', `Updated ${permKey} for ${s?.full_name || userId} to ${newVal}`, { user_id: userId, permission: permKey, value: newVal });
+
       loadAll();
     } catch (err: any) { toast.error(err.message); }
   };
@@ -545,6 +683,9 @@ const SuperAdmin = () => {
         updated_at: new Date().toISOString()
       });
       if (error) throw error;
+
+      await logAdminAction('UPDATE', 'setting', `Updated payment gateway configuration`, { config: updates });
+
       toast.success("Payment settings updated!");
       loadAll();
     } catch (err: any) { 
@@ -560,6 +701,7 @@ const SuperAdmin = () => {
     const { error } = await supabase.from("system_settings").update({ is_enabled: !current }).eq("key", key);
     if (error) toast.error("Update failed");
     else {
+      await logAdminAction('UPDATE', 'setting', `${!current ? "Enabled" : "Disabled"} system setting: ${key}`, { setting: key, enabled: !current });
       toast.success(`${key.replace('_', ' ')} toggled`);
       loadAll();
     }
@@ -635,6 +777,7 @@ const SuperAdmin = () => {
                 <TabsTrigger value="payments" className="gap-2"><DollarSign className="size-4" /> Transactions</TabsTrigger>
                 <TabsTrigger value="leads" className="gap-2"><UserPlus className="size-4" /> Leads</TabsTrigger>
                 <TabsTrigger value="staff" className="gap-2"><Shield className="size-4" /> Staff</TabsTrigger>
+                <TabsTrigger value="logs" className="gap-2"><Clock className="size-4" /> Activity Logs</TabsTrigger>
                 <TabsTrigger value="settings" className="gap-2"><Building2 className="size-4" /> Settings</TabsTrigger>
               </TabsList>
             </div>
@@ -1389,6 +1532,109 @@ const SuperAdmin = () => {
                   </Card>
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="logs" className="space-y-6">
+              <Card className="p-6 border-none shadow-elegant bg-card/50 backdrop-blur-sm">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input 
+                      className="pl-9" 
+                      placeholder="Search logs (admin, action, description)..." 
+                      value={logsSearchTerm} 
+                      onChange={e => setLogsSearchTerm(e.target.value)} 
+                    />
+                  </div>
+                  <Button variant="outline" className="gap-2 w-fit" onClick={() => setLogsSearchTerm("")}>
+                    <Filter className="size-4" /> Clear Search
+                  </Button>
+                </div>
+              </Card>
+
+              <Card className="overflow-hidden border-none shadow-elegant">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="uppercase text-[10px] font-black">Timestamp</TableHead>
+                      <TableHead className="uppercase text-[10px] font-black">Admin</TableHead>
+                      <TableHead className="uppercase text-[10px] font-black">Action</TableHead>
+                      <TableHead className="uppercase text-[10px] font-black">Description</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logsLoading ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="size-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    ) : (
+                      <>
+                        {adminLogs.map(log => (
+                          <TableRow key={log.id} className="hover:bg-muted/20 transition-colors">
+                            <TableCell className="text-[10px] font-bold text-slate-500 whitespace-nowrap">
+                              {new Date(log.created_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-bold text-xs">{log.admin_email}</div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-[8px] font-black uppercase px-2 ${
+                                  log.action_type === 'DELETE' || log.action_type === 'SYSTEM_RESET' ? 'text-red-600 border-red-100 bg-red-50' : 
+                                  log.action_type === 'CREATE' ? 'text-green-600 border-green-100 bg-green-50' :
+                                  'text-blue-600 border-blue-100 bg-blue-50'
+                                }`}
+                              >
+                                {log.action_type}
+                              </Badge>
+                              <div className="text-[8px] text-muted-foreground mt-0.5 font-bold uppercase tracking-tighter">{log.entity_type}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-xs font-medium text-slate-700">{log.description}</div>
+                              {log.metadata && Object.keys(log.metadata).length > 0 && (
+                                <div className="text-[9px] text-muted-foreground mt-1 bg-slate-50 p-1.5 rounded-lg border border-slate-100 font-mono overflow-hidden text-ellipsis">
+                                  {JSON.stringify(log.metadata)}
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {adminLogs.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-20 text-muted-foreground font-medium italic">
+                              No activity logs found.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/* Logs Pagination */}
+                <div className="p-4 bg-muted/10 border-t flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="text-xs text-muted-foreground font-medium">
+                    Showing {logsTotalCount === 0 ? 0 : logsPage * pageSize + 1} to {Math.min(logsTotalCount, (logsPage + 1) * pageSize)} of {logsTotalCount} logs
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      disabled={logsPage === 0 || logsLoading}
+                      onClick={() => setLogsPage(p => p - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      disabled={(logsPage + 1) * pageSize >= logsTotalCount || logsLoading}
+                      onClick={() => setLogsPage(p => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

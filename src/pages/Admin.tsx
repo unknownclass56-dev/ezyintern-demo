@@ -75,6 +75,25 @@ const Admin = () => {
   const [newClassSchedule, setNewClassSchedule] = useState("");
   const [newClassDomain, setNewClassDomain] = useState("all");
 
+  const logAdminAction = async (action_type: string, entity_type: string, description: string, metadata: any = {}) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await supabase.from("admin_logs").insert({
+        user_id: session.user.id,
+        admin_email: session.user.email,
+        action_type,
+        entity_type,
+        description,
+        metadata,
+        created_at: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("Log Action Error:", err);
+    }
+  };
+
   const fetchStudents = async () => {
     setIsStudentsLoading(true);
     try {
@@ -229,6 +248,13 @@ const Admin = () => {
       const { error } = await supabase.from("certificates").insert(issues);
       if (error) throw error;
 
+      await logAdminAction(
+        'BULK_ACTION', 
+        'certificate', 
+        `Issued ${selectedStudents.length} certificates for ${certProgram} (Admin)`,
+        { student_count: selectedStudents.length, program: certProgram, duration: certDuration }
+      );
+
       toast.success(`Successfully generated ${selectedStudents.length} certificates!`);
       setSelectedStudents([]);
       loadAll();
@@ -253,13 +279,30 @@ const Admin = () => {
   const toggleBlock = async (user: any) => {
     const newStatus = user.status === "Blocked" ? "Active" : "Blocked";
     await supabase.from("students").update({ status: newStatus }).eq("id", user.id);
+    
+    await logAdminAction(
+      'UPDATE', 
+      'student', 
+      `${newStatus === "Blocked" ? "Blocked" : "Unblocked"} student ${user.full_name} (Admin)`,
+      { student_id: user.id, status: newStatus }
+    );
+
     toast.success(`User ${newStatus}`);
     loadAll();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure?")) return;
+    const user = students.find(s => s.id === id);
     await supabase.from("students").delete().eq("id", id);
+    
+    await logAdminAction(
+      'DELETE', 
+      'student', 
+      `Deleted student ${user?.full_name || id} (Admin)`,
+      { entity_id: id, name: user?.full_name }
+    );
+
     toast.success("Deleted");
     loadAll();
   };
@@ -269,6 +312,9 @@ const Admin = () => {
     const { data } = await supabase.from("profiles").select("id").eq("email", staffEmail.trim()).single();
     if (!data) return toast.error("User not found");
     await supabase.from("user_roles").insert({ user_id: data.id, role: "admin" });
+    
+    await logAdminAction('CREATE', 'staff', `Granted admin access to ${staffEmail.trim()} (Admin)`, { user_id: data.id, email: staffEmail.trim() });
+    
     toast.success("Admin added");
     setStaffEmail(""); setIsAddStaffOpen(false); loadAll();
   };
@@ -277,12 +323,19 @@ const Admin = () => {
   const addDomain = async () => {
     if (!newDomain.trim()) return;
     await supabase.from("internship_domains").insert({ name: newDomain.trim() });
+    
+    await logAdminAction('CREATE', 'domain', `Added internship domain: ${newDomain.trim()} (Admin)`);
+    
     setNewDomain(""); loadAll();
   };
 
   const delDomain = async (id: string) => {
     if (!confirm("Delete domain?")) return;
+    const domain = domains.find(d => d.id === id);
     await supabase.from("internship_domains").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'domain', `Deleted internship domain: ${domain?.name || id} (Admin)`);
+    
     loadAll();
   };
 
@@ -290,25 +343,40 @@ const Admin = () => {
     if (!newUni.trim()) return;
     const logo = prompt("Enter University Logo URL (optional):") || "";
     await supabase.from("universities").insert({ name: newUni.trim(), logo_url: logo });
+    
+    await logAdminAction('CREATE', 'university', `Added university: ${newUni.trim()} (Admin)`);
+    
     setNewUni(""); loadAll();
   };
 
   const delUni = async (id: string) => {
     if (!confirm("Delete university?")) return;
+    const uni = unis.find(u => u.id === id);
     await supabase.from("universities").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'university', `Deleted university: ${uni?.name || id} (Admin)`);
+    
     loadAll();
   };
 
   const addCollege = async () => {
     if (!newCollege.trim() || !collegeUni) return toast.error("Enter name and select university");
     await supabase.from("colleges").insert({ name: newCollege.trim(), university_id: collegeUni });
+    
+    const uniName = unis.find(u => u.id === collegeUni)?.name;
+    await logAdminAction('CREATE', 'college', `Added college: ${newCollege.trim()} to ${uniName} (Admin)`);
+    
     setNewCollege(""); loadAll();
     toast.success("College added");
   };
 
   const delCollege = async (id: string) => {
     if (!confirm("Delete college?")) return;
+    const college = colleges.find(c => c.id === id);
     await supabase.from("colleges").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'college', `Deleted college: ${college?.name || id} (Admin)`);
+    
     loadAll();
   };
 
@@ -358,6 +426,9 @@ const Admin = () => {
         scheduled_at: new Date(newClassSchedule).toISOString(),
         domain_id: newClassDomain === "all" ? null : newClassDomain
       });
+
+      await logAdminAction('CREATE', 'class', `Scheduled class: ${newClassTitle} (Admin)`, { title: newClassTitle, schedule: newClassSchedule });
+
       toast.success("Class Scheduled!");
       setNewClassTitle(""); setNewClassUrl(""); setNewClassSchedule("");
       loadAll();
@@ -368,7 +439,11 @@ const Admin = () => {
 
   const delClass = async (id: string) => {
     if (!confirm("Delete this scheduled class?")) return;
+    const cl = classesList.find(c => c.id === id);
     await supabase.from("classes").delete().eq("id", id);
+    
+    await logAdminAction('DELETE', 'class', `Deleted scheduled class: ${cl?.title || id} (Admin)`);
+    
     toast.success("Class deleted");
     loadAll();
   };
@@ -376,6 +451,9 @@ const Admin = () => {
   const toggleClassActive = async (cl: any) => {
     const newStatus = !cl.is_active;
     await supabase.from("classes").update({ is_active: newStatus }).eq("id", cl.id);
+    
+    await logAdminAction('UPDATE', 'class', `${newStatus ? "Enabled" : "Disabled"} class: ${cl.title} (Admin)`, { class_id: cl.id, active: newStatus });
+    
     toast.success(newStatus ? "Class enabled — students can now see it" : "Class disabled — hidden from students");
     loadAll();
   };
