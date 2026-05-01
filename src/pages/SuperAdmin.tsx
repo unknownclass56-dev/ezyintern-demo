@@ -54,7 +54,11 @@ const SuperAdmin = () => {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [domainFilter, setDomainFilter] = useState("all");
+  const [uniFilter, setUniFilter] = useState("all");
+  const [collegeFilter, setCollegeFilter] = useState("all");
 
   // Pagination
   const [studentPage, setStudentPage] = useState(0);
@@ -162,7 +166,19 @@ const SuperAdmin = () => {
       if (domainFilter !== "all") {
         query = query.eq("internship_domain", domainFilter);
       }
-      if (dateFilter) {
+      if (uniFilter !== "all") {
+        query = query.eq("university_name", uniFilter);
+      }
+      if (collegeFilter !== "all") {
+        query = query.eq("college_name", collegeFilter);
+      }
+      if (startDate) {
+        query = query.gte("created_at", `${startDate}T00:00:00`);
+      }
+      if (endDate) {
+        query = query.lte("created_at", `${endDate}T23:59:59`);
+      }
+      if (dateFilter && !startDate && !endDate) {
         query = query.gte("created_at", `${dateFilter}T00:00:00`).lte("created_at", `${dateFilter}T23:59:59`);
       }
 
@@ -262,7 +278,7 @@ const SuperAdmin = () => {
     if (allowed) {
       fetchStudents();
     }
-  }, [studentPage, searchTerm, domainFilter, dateFilter]);
+  }, [studentPage, searchTerm, domainFilter, dateFilter, startDate, endDate, uniFilter, collegeFilter]);
 
   useEffect(() => {
     if (allowed) {
@@ -581,6 +597,39 @@ const SuperAdmin = () => {
     }
   };
 
+  const exportToCSV = () => {
+    if (students.length === 0) return toast.error("No data to export");
+    
+    const exportData = students.map(s => ({
+      "Full Name": s.full_name,
+      "Email": s.email,
+      "Contact": s.contact_number,
+      "University": s.university_name,
+      "College": s.college_name,
+      "Domain": s.internship_domain,
+      "Roll No": s.roll_number,
+      "Batch/Session": s.academic_session,
+      "Semester": s.class_semester,
+      "Parent Name": s.parent_name,
+      "Emergency Contact": s.emergency_contact,
+      "Status": s.status,
+      "Joined Date": new Date(s.created_at).toLocaleDateString()
+    }));
+
+    const csv = Papa.unparse(exportData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `students_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Exported successfully!");
+  };
+
   // Filtering Logic (Now handled server-side, but keeping for compatibility if needed)
   const filteredStudents = students;
 
@@ -749,7 +798,8 @@ const SuperAdmin = () => {
               <p className="text-muted-foreground">Master Control & Global Infrastructure Management</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" className="gap-2 shadow-soft" onClick={() => navigate("/register")}><UserPlus className="size-4" /> Add Student</Button>
+              <Button variant="outline" className="gap-2 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100" onClick={exportToCSV}><Download className="size-4" /> Export CSV</Button>
+              <Button variant="outline" className="gap-2" onClick={() => navigate("/register")}><UserPlus className="size-4" /> Add Student</Button>
               <Button variant="hero" className="gap-2 shadow-glow" onClick={() => setIsAddStaffOpen(true)}><Shield className="size-4" /> Add Admin</Button>
             </div>
           </div>
@@ -806,15 +856,45 @@ const SuperAdmin = () => {
             </div>
 
             <TabsContent value="students" className="space-y-6">
-              <Card className="p-6 border-none shadow-elegant bg-card/50 backdrop-blur-sm">
-                <div className="grid md:grid-cols-4 gap-4">
-                  <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search by name or email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+              <Card className="p-6 border-none shadow-elegant mb-6 bg-card/50 backdrop-blur-sm">
+                <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input className="pl-9" placeholder="Name or email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                  </div>
+                  
                   <Select value={domainFilter} onValueChange={setDomainFilter}>
                     <SelectTrigger className="gap-2"><Briefcase className="size-4" /><SelectValue placeholder="All Domains" /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All Domains</SelectItem>{domains.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
                   </Select>
-                  <div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input type="date" className="pl-9" value={dateFilter} onChange={e => setDateFilter(e.target.value)} /></div>
-                  <Button variant="outline" className="gap-2" onClick={() => { setSearchTerm(""); setDateFilter(""); setDomainFilter("all"); }}><Filter className="size-4" /> Clear Filters</Button>
+
+                  <Select value={uniFilter} onValueChange={setUniFilter}>
+                    <SelectTrigger className="gap-2"><Building2 className="size-4" /><SelectValue placeholder="All Universities" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">All Universities</SelectItem>{unis.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}</SelectContent>
+                  </Select>
+
+                  <Select value={collegeFilter} onValueChange={setCollegeFilter}>
+                    <SelectTrigger className="gap-2"><GraduationCap className="size-4" /><SelectValue placeholder="All Colleges" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Colleges</SelectItem>
+                      {colleges.filter(c => uniFilter === "all" || c.university_id === unis.find(u => u.name === uniFilter)?.id).map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Start Date</Label>
+                    <div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input type="date" className="pl-9" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">End Date</Label>
+                    <div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" /><Input type="date" className="pl-9" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
+                  </div>
+                  <Button variant="outline" className="gap-2" onClick={() => { 
+                    setSearchTerm(""); setDateFilter(""); setDomainFilter("all"); 
+                    setUniFilter("all"); setCollegeFilter("all"); setStartDate(""); setEndDate(""); 
+                  }}><Filter className="size-4" /> Reset Filters</Button>
                 </div>
               </Card>
 
