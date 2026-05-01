@@ -9,7 +9,19 @@ import { SiteNav } from "@/components/SiteNav";
 import { SiteFooter } from "@/components/SiteFooter";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
+import { Eye, EyeOff, Loader2, LogIn, Mail } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -18,6 +30,9 @@ const Login = () => {
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +65,48 @@ const Login = () => {
     }
     
     navigate("/dashboard");
+  };
+
+  const handleSendOtp = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error("Please enter your email first");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({ 
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+      }
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setShowOtp(true);
+      toast.success("6-digit code sent to your email!");
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpValue.length !== 6) {
+      toast.error("Please enter the complete 6-digit code");
+      return;
+    }
+    setIsVerifying(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: otpValue,
+      type: 'magiclink',
+    });
+    setIsVerifying(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Welcome back!");
+      navigate("/dashboard");
+    }
   };
 
   return (
@@ -91,7 +148,7 @@ const Login = () => {
                   <Checkbox checked={remember} onCheckedChange={(v) => setRemember(!!v)} />
                   <span>Remember me</span>
                 </label>
-                <a href="#" className="text-primary font-medium hover:underline" onClick={(e) => { e.preventDefault(); toast.info("Password reset coming soon. Call 7544090878 for help."); }}>
+                <a href="#" className="text-primary font-medium hover:underline" onClick={handleSendOtp}>
                   Forgot password?
                 </a>
               </div>
@@ -107,6 +164,57 @@ const Login = () => {
           </Card>
         </div>
       </main>
+
+      <Dialog open={showOtp} onOpenChange={setShowOtp}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="size-5 text-primary" />
+              Verify Your Email
+            </DialogTitle>
+            <DialogDescription>
+              We've sent a 6-digit code to <span className="font-bold text-slate-900">{email}</span>.
+              Enter the code below to login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center space-y-6 py-4">
+            <InputOTP
+              maxLength={6}
+              value={otpValue}
+              onChange={(value) => setOtpValue(value)}
+            >
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+                <InputOTPSlot index={4} />
+                <InputOTPSlot index={5} />
+              </InputOTPGroup>
+            </InputOTP>
+
+            <Button 
+              className="w-full" 
+              onClick={handleVerifyOtp} 
+              disabled={isVerifying || otpValue.length < 6}
+            >
+              {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Verify & Login
+            </Button>
+            
+            <p className="text-xs text-center text-muted-foreground">
+              Didn't receive the code? {" "}
+              <button 
+                onClick={handleSendOtp} 
+                className="text-primary font-bold hover:underline"
+              >
+                Resend Code
+              </button>
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <SiteFooter />
     </div>
   );

@@ -159,36 +159,36 @@ const Index = () => {
           </div>
             </div>
 
-            <div className="hidden lg:block relative">
+            <div className="relative mt-16 lg:mt-0 flex justify-center lg:justify-end">
               {/* Glow Effects */}
-              <div className="absolute -left-20 -bottom-20 size-80 opacity-30 blur-3xl bg-primary/40 rounded-full animate-pulse" />
-              <div className="absolute -right-20 -top-20 size-80 opacity-30 blur-3xl bg-accent/40 rounded-full animate-pulse" />
+              <div className="absolute -left-10 -bottom-10 lg:-left-20 lg:-bottom-20 size-60 lg:size-80 opacity-30 blur-3xl bg-primary/40 rounded-full animate-pulse" />
+              <div className="absolute -right-10 -top-10 lg:-right-20 lg:-top-20 size-60 lg:size-80 opacity-30 blur-3xl bg-accent/40 rounded-full animate-pulse" />
               
               {/* Main 3D Illustration */}
-              <div className="relative z-10 animate-float drop-shadow-[0_35px_35px_rgba(59,130,246,0.25)]">
+              <div className="relative z-10 animate-float drop-shadow-[0_35px_35px_rgba(59,130,246,0.25)] w-full max-w-[450px] lg:max-w-[550px]">
                 <img 
                   src="/student_real.png" 
                   alt="Student Intern" 
-                  className="w-full h-auto max-w-[550px] rounded-2xl shadow-2xl"
+                  className="w-full h-auto rounded-2xl shadow-2xl"
                 />
                 
                 {/* Achievement Badge Overlay */}
-                <div className="absolute -bottom-6 -left-6 bg-white p-5 rounded-2xl shadow-2xl border border-slate-100 flex items-center gap-4 animate-bounce">
-                  <div className="size-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-600">
-                    <Award className="size-7" />
+                <div className="absolute -bottom-4 -left-4 lg:-bottom-6 lg:-left-6 bg-white p-3 lg:p-5 rounded-2xl shadow-2xl border border-slate-100 flex items-center gap-3 lg:gap-4 animate-bounce">
+                  <div className="size-10 lg:size-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-600">
+                    <Award className="size-6 lg:size-7" />
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Status</p>
-                    <p className="text-sm font-black text-slate-800">Verified Intern</p>
+                    <p className="text-[8px] lg:text-[10px] uppercase font-black text-slate-400 tracking-widest">Status</p>
+                    <p className="text-xs lg:text-sm font-black text-slate-800">Verified Intern</p>
                   </div>
                 </div>
 
                 {/* Trust Badge Overlay */}
-                <div className="absolute top-10 -right-10 bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/20 flex items-center gap-3">
-                  <div className="size-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
-                    <ShieldCheck className="size-6" />
+                <div className="absolute top-6 -right-4 lg:top-10 lg:-right-10 bg-white/80 backdrop-blur-md p-3 lg:p-4 rounded-2xl shadow-xl border border-white/20 flex items-center gap-2 lg:gap-3">
+                  <div className="size-8 lg:size-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
+                    <ShieldCheck className="size-5 lg:size-6" />
                   </div>
-                  <p className="text-xs font-bold text-slate-800 pr-2">UGC Compliant</p>
+                  <p className="text-[10px] lg:text-xs font-bold text-slate-800 pr-1 lg:pr-2">UGC Compliant</p>
                 </div>
               </div>
             </div>
