@@ -214,9 +214,12 @@ const SuperAdmin = () => {
         supabase.from("system_settings").select("*"),
         supabase.from("admin_permissions").select("*"),
         supabase.from("payment_config").select("*").eq("id", 1).maybeSingle(),
-        supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(1000),
+        supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(1000),
       ]);
+      
+      console.log("SuperAdmin - Fetched Payments:", ps.data?.length || 0);
+      console.log("SuperAdmin - Fetched Leads:", pcan.data?.length || 0);
 
       const rolesMap = (adminRoles || []).reduce((acc: any, curr: any) => {
         if (!acc[curr.user_id]) acc[curr.user_id] = [];
@@ -1383,9 +1386,12 @@ const SuperAdmin = () => {
               <div className="space-y-6">
                 <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-green-50/50 to-white">
                   <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2"><DollarSign className="size-6 text-green-600" /> Revenue Tracking</h3>
-                      <p className="text-xs text-muted-foreground font-medium">Monitoring all successful platform transactions</p>
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2"><DollarSign className="size-6 text-green-600" /> Revenue Tracking</h3>
+                        <p className="text-xs text-muted-foreground font-medium">Monitoring all platform transactions</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={loadAll} className="size-10 p-0 rounded-xl hover:bg-green-50 text-green-600"><Loader2 className={`size-5 ${loading ? 'animate-spin' : ''}`} /></Button>
                     </div>
                     <div className="text-right">
                       <div className="text-3xl font-black text-green-600">₹{payments.reduce((acc, curr) => acc + (curr.amount_paise || 0), 0) / 100}</div>

@@ -158,9 +158,12 @@ const Admin = () => {
         supabase.from("classes").select("*, internship_domains(name)").order("scheduled_at", { ascending: true }),
         supabase.from("system_settings").select("*"),
         supabase.from("admin_permissions").select("*").eq("user_id", session.user.id).maybeSingle(),
-        supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(1000),
+        supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(1000),
       ]);
+      
+      console.log("Fetched Payments:", ps.data?.length || 0);
+      console.log("Fetched Leads:", pc.data?.length || 0);
 
       const rolesMap = (adminRoles || []).reduce((acc: any, curr: any) => {
         if (!acc[curr.user_id]) acc[curr.user_id] = [];
@@ -804,9 +807,12 @@ const Admin = () => {
               <div className="space-y-6">
                 <Card className="p-6 border-none shadow-elegant">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold flex items-center gap-2 text-green-600"><CheckCircle2 className="size-5" /> Successful Transactions</h3>
-                    <Badge variant="hero" className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-4 py-1.5 font-bold">Total: {payments.length}</Badge>
-                  </div>
+                     <div className="flex items-center gap-4">
+                       <h3 className="text-xl font-bold flex items-center gap-2 text-green-600"><CheckCircle2 className="size-5" /> Successful Transactions</h3>
+                       <Button variant="ghost" size="sm" onClick={loadAll} className="size-8 p-0"><Loader2 className={`size-4 ${loading ? 'animate-spin' : ''}`} /></Button>
+                     </div>
+                     <Badge variant="hero" className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-4 py-1.5 font-bold">Total: {payments.length}</Badge>
+                   </div>
                   <ScrollArea className="h-[450px]">
                     <Table>
                       <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Student Details</TableHead><TableHead>Transaction ID</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Profile</TableHead></TableRow></TableHeader>
