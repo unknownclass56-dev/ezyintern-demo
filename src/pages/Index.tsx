@@ -96,11 +96,11 @@ const Index = () => {
   }, [counted]);
 
   const faqs = [
-    { q: "What is the registration fee?", a: "The registration fee is ₹500 for most universities. Students of BNMU (Madhepura) and Purnea University pay ₹400. This is a one-time fee with no hidden charges." },
-    { q: "What is the refund policy?", a: "We offer a full refund within 7 days of payment if you have not attended any classes. After 7 days, the fee is non-refundable." },
-    { q: "Is the certificate valid / recognised?", a: "Yes. EzyIntern is AICTE Registered and ISO 9001:2015 Certified. Our certificates are recognised by affiliated colleges under Bihar universities as per UGC Guidelines 2023." },
-    { q: "How long does the internship take?", a: "The internship is 120 hours, structured across 6–8 weeks. Classes are held online 3–4 times a week and are also available as recordings." },
-    { q: "Is the internship online or offline?", a: "Completely online. Classes are conducted via Google Meet or Zoom. You just need a smartphone or laptop with internet access." },
+    { q: "What is the registration fee?", a: "The registration fee is a one-time charge for the entire internship duration. There are no hidden charges or extra costs for certification." },
+    { q: "What is the refund policy?", a: "We offer a full refund within 24 hours of payment if you have not attended any classes. After 24 hours, the fee is non-refundable." },
+    { q: "Is the certificate valid / recognised?", a: "Yes, Ezyintern is a government authorized and certified company. Our certificates are recognized by universities as per UGC Guidelines 2023. We are MCA Registered, MSME Certified, and ISO Certified." },
+    { q: "How long does the internship take?", a: "The internship is structured across 4 to 8 weeks. Classes are held online 3–4 times a week and are also available as recordings." },
+    { q: "Is the internship online or offline?", a: "Completely online. Classes are conducted via YouTube Live, Google Meet or Zoom. You just need a smartphone or laptop with internet access." },
     { q: "How do I verify my certificate?", a: "Visit the verify page and enter your certificate number or scan the QR code on your certificate. It takes you to the verification page automatically." }
   ];
 
@@ -118,7 +118,7 @@ const Index = () => {
       `}</style>
       {/* Announcement Banner */}
       <div className="bg-primary py-2.5 px-4 text-center text-[13px] font-medium text-white">
-        🎓 Registrations Open for 2026–2029 Batch — UGC Compliant · AICTE Registered · ISO 9001:2015 Certified · MCA Registered &nbsp;
+        🎓 Registrations Open for 2023–2027 Batch — ISO 9001:2015 Certified · MCA Registered &nbsp;
         <Link to="/register" className="text-blue-200 underline hover:text-white transition-colors">Register Now →</Link>
       </div>
 
@@ -133,10 +133,10 @@ const Index = () => {
             <div className="animate-fade-in-up">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100 text-primary text-[13px] font-bold mb-6">
                 <span>🏆</span>
-                AICTE Registered · ISO 9001:2015 Certified
+                AICTE & UGC Compliant Programs
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-[1.1] mb-6">
-                Bihar's Trusted <span className="text-primary">Internship Partner</span> — UGC Aligned
+                Bihar's Trusted <span className="text-primary">Internship Provider</span> — UGC Aligned
               </h1>
               <p className="text-lg text-slate-600 mb-8 max-w-xl leading-relaxed">
                 120-hour, 4-credit internship programmes for B.A., B.Sc., B.Com., BBA & BCA students. Earn a verifiable digital certificate recognised by top Bihar universities.
@@ -151,7 +151,7 @@ const Index = () => {
               </div>
               
           <div className="flex flex-wrap gap-3">
-            {["AICTE Registered", "ISO 9001:2015", "MSME Certified", "MCA Registered"].map((tag) => (
+            {["MCA Registered", "MSME Certified", "ISO Certified", "AICTE Compliant", "UGC Compliant"].map((tag) => (
               <div key={tag} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-slate-700 shadow-sm">
                 <CheckCircle2 className="size-4 text-primary" /> {tag}
               </div>
@@ -202,9 +202,9 @@ const Index = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
               { l: "Students Trained", v: stats.students, s: "+" },
-              { l: "Partner Unis", v: stats.unis, s: "" },
+              { l: "Partner Universities", v: stats.unis, s: "" },
               { l: "Domains", v: stats.domains, s: "+" },
-              { l: "Certs Issued", v: stats.certs, s: "+" }
+              { l: "Certificates Issued", v: stats.certs, s: "+" }
             ].map((st, i) => (
               <div key={i} className="text-white">
                 <div className="text-3xl md:text-4xl font-black mb-1">
@@ -280,9 +280,9 @@ const Index = () => {
             <div className="hidden md:block absolute top-12 left-[10%] right-[10%] h-0.5 bg-gradient-to-r from-primary/40 to-primary/10" />
             {[
               { n: "1", t: "Register", d: "Fill form with academic details and pick your domain." },
-              { n: "2", t: "Pay & Offer", d: "Pay ₹400-₹500 and get your offer letter instantly." },
+              { n: "2", t: "Pay & Offer", d: "Pay registration fee and get your offer letter instantly." },
               { n: "3", t: "Train", d: "Attend live classes and complete online quizzes." },
-              { n: "4", t: "Get Cert", d: "Download your verifiable digital certificate." }
+              { n: "4", t: "Get Certificate", d: "Download your verifiable digital certificate." }
             ].map((s, i) => (
               <div key={i} className="text-center relative z-10">
                 <div className="size-14 rounded-full bg-primary text-white flex items-center justify-center text-xl font-black mx-auto mb-6 shadow-xl shadow-primary/20">

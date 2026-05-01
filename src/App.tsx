@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Login from "./pages/Login.tsx";
 import Register from "./pages/Register.tsx";
+import Contact from "./pages/Contact.tsx";
 import VerifyCertificate from "./pages/VerifyCertificate.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Admin from "./pages/Admin.tsx";
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/admin" element={<Admin />} />
           <Route path="/super-admin" element={<SuperAdmin />} />
           <Route path="/benefits" element={<Benefits />} />
+          <Route path="/contact" element={<Contact />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

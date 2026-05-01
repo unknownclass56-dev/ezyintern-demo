@@ -46,22 +46,20 @@ export const SiteNav = () => {
           </div>
           <div className="leading-none">
             <div className="font-bold text-2xl tracking-tighter"><span className="text-[#5ea4e8]">Ezy</span><span className="text-black dark:text-white">intern</span></div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground hidden sm:block">Bihar's Trusted Internship Partner</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground hidden sm:block">Bihar's Trusted Internship Provider</div>
           </div>
         </Link>
 
         <div className="hidden md:flex items-center gap-7 text-sm font-medium">
+          <Link to="/" className="text-muted-foreground hover:text-primary transition-smooth">Home</Link>
           <a href="/#why" className="text-muted-foreground hover:text-primary transition-smooth">Why Join</a>
           <Link to="/benefits" className="text-muted-foreground hover:text-primary transition-smooth">Benefits</Link>
           <a href="/#universities" className="text-muted-foreground hover:text-primary transition-smooth">Universities</a>
           <Link to="/verify" className="text-muted-foreground hover:text-primary transition-smooth">Verify</Link>
-          <a href="/#contact" className="text-muted-foreground hover:text-primary transition-smooth">Contact</a>
+          <Link to="/contact" className="text-muted-foreground hover:text-primary transition-smooth">Contact</Link>
         </div>
 
         <div className="flex items-center gap-2">
-          <a href="tel:7004762654" className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-smooth mr-2">
-            <Phone className="size-3.5" /> 7004762654
-          </a>
           {isAuthed ? (
             <>
               {isSuperAdmin ? (

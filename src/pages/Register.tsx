@@ -12,7 +12,7 @@ import { SiteNav } from "@/components/SiteNav";
 import { SiteFooter } from "@/components/SiteFooter";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2, CheckCircle2, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2, CheckCircle2, ChevronLeft, ChevronRight, UserCheck, MessageSquare, ArrowRight, Building2 } from "lucide-react";
 import { z } from "zod";
 
 declare global {
@@ -425,7 +425,7 @@ const Register = () => {
                     </RadioGroup>
                   </div>
                   <div className="space-y-2">
-                    <Label>Department / Stream *</Label>
+                    <Label>Department *</Label>
                     <Select value={departmentName} onValueChange={(val) => { setDepartmentName(val); setSubject(""); }} disabled={!degree}>
                       <SelectTrigger><SelectValue placeholder={degree ? "Select department" : "Select degree first"} /></SelectTrigger>
                       <SelectContent>
@@ -446,28 +446,6 @@ const Register = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Class / Semester *</Label>
-                    <Select value={classSem} onValueChange={setClassSem}>
-                      <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                          <SelectItem key={s} value={`Semester ${s}`}>Semester {s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Academic Session *</Label>
-                    <Select value={session} onValueChange={setSession}>
-                      <SelectTrigger><SelectValue placeholder="Select session" /></SelectTrigger>
-                      <SelectContent>
-                        {["2023-2027", "2024-2028", "2025-2029"].map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
                     <Label>Subject</Label>
                     {departmentName === "B.A." || departmentName === "B.Sc" || departmentName === "B.Com" ? (
                       <Select value={subject} onValueChange={setSubject}>
@@ -481,6 +459,28 @@ const Register = () => {
                     ) : (
                       <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Enter subject manually" />
                     )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Academic Session *</Label>
+                    <Select value={session} onValueChange={setSession}>
+                      <SelectTrigger><SelectValue placeholder="Select session" /></SelectTrigger>
+                      <SelectContent>
+                        {["2023-2027", "2024-2028", "2025-2029"].map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Class / Semester *</Label>
+                    <Select value={classSem} onValueChange={setClassSem}>
+                      <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
+                          <SelectItem key={s} value={`Semester ${s}`}>Semester {s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2"><Label>University Roll Number *</Label><Input value={rollNo} onChange={(e) => setRollNo(e.target.value)} /></div>
                   <div className="md:col-span-2 space-y-2">
@@ -556,6 +556,23 @@ const Register = () => {
             <p className="text-center text-sm text-muted-foreground mt-6">
               Already have an account? <Link to="/login" className="text-primary font-semibold hover:underline">Sign in here</Link>
             </p>
+
+            <div className="mt-8 pt-6 border-t border-border">
+              <a 
+                href="https://whatsapp.com/channel/0029VbC9lvi3bbV8TS7TbB00" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-3 p-4 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition-all border border-green-200 group"
+              >
+                <div className="size-10 rounded-full bg-green-500 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                  <MessageSquare className="size-6" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-green-600">Official Channel</p>
+                  <p className="text-sm font-bold">Join EzyIntern WhatsApp Channel</p>
+                </div>
+              </a>
+            </div>
           </Card>
         </div>
       </main>
