@@ -18,7 +18,7 @@ export async function sendRegistrationEmail(data: {
   semester: string;
 }) {
   try {
-    const { error } = await supabase.functions.invoke("send-email", {
+    const { error } = await supabase.functions.invoke("resend-email", {
       body: {
         type: "registration_confirmation",
         to: data.to,
@@ -42,7 +42,7 @@ export async function sendCertificateEmail(data: {
   certificateId: string;
 }) {
   try {
-    const { error } = await supabase.functions.invoke("send-email", {
+    const { error } = await supabase.functions.invoke("resend-email", {
       body: {
         type: "certificate_generated",
         to: data.to,

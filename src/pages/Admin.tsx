@@ -151,6 +151,44 @@ const Admin = () => {
     }
   };
 
+  const handleEditStudentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editData) return;
+    setProcessing(true);
+    try {
+      const { error } = await supabase.from("students").update({
+        full_name: editData.full_name,
+        email: editData.email,
+        contact_number: editData.contact_number,
+        gender: editData.gender,
+        parent_name: editData.parent_name,
+        university_name: editData.university_name,
+        college_name: editData.college_name,
+        degree: editData.degree,
+        department: editData.department,
+        academic_session: editData.academic_session,
+        class_semester: editData.class_semester,
+        roll_number: editData.roll_number,
+        internship_domain: editData.internship_domain,
+        emergency_name: editData.emergency_name,
+        emergency_relation: editData.emergency_relation,
+        emergency_contact: editData.emergency_contact
+      }).eq("id", editData.id);
+
+      if (error) throw error;
+      
+      await logAdminAction('UPDATE', 'student', `Updated student details: ${editData.full_name} (Admin)`, { student_id: editData.id });
+      
+      toast.success("Student updated successfully!");
+      setIsEditDialogOpen(false);
+      loadAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const fetchStudents = async () => {
     setIsStudentsLoading(true);
     try {
@@ -850,6 +888,7 @@ const Admin = () => {
                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="size-8 p-0"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48 shadow-elegant">
                                   <DropdownMenuItem onClick={() => { setSelectedUser(s); setIsViewDialogOpen(true); }} className="gap-2"><Eye className="size-4" /> View Details</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setEditData({...s}); setIsEditDialogOpen(true); }} className="gap-2 text-primary"><Edit className="size-4" /> Edit Details</DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => toggleBlock(s)} className={`gap-2 ${s.status === "Blocked" ? "text-green-600" : "text-destructive"}`}>
                                     {s.status === "Blocked" ? <CheckCircle2 className="size-4" /> : <Ban className="size-4" />} {s.status === "Blocked" ? "Unblock" : "Block"}
                                   </DropdownMenuItem>
@@ -1285,6 +1324,85 @@ const Admin = () => {
           </ScrollArea>
         )}
       </DialogContent></Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
+          <div className="bg-primary p-6 text-white">
+            <DialogTitle className="text-2xl font-black">Edit Student Details</DialogTitle>
+            <p className="text-primary-foreground/80 text-xs mt-1">Update personal and academic records</p>
+          </div>
+          {editData && (
+            <ScrollArea className="max-h-[70vh]">
+              <form onSubmit={handleEditStudentSubmit} className="p-8 space-y-8">
+                {/* Personal Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                    <User className="size-3" /> Personal Information
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                    <div className="space-y-1"><Label className="text-xs">Full Name</Label><Input value={editData.full_name || ""} onChange={e => setEditData({...editData, full_name: e.target.value})} required /></div>
+                    <div className="space-y-1"><Label className="text-xs">Email</Label><Input type="email" value={editData.email || ""} onChange={e => setEditData({...editData, email: e.target.value})} required /></div>
+                    <div className="space-y-1"><Label className="text-xs">Contact Number</Label><Input value={editData.contact_number || ""} onChange={e => setEditData({...editData, contact_number: e.target.value})} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Gender</Label>
+                      <Select value={editData.gender || ""} onValueChange={v => setEditData({...editData, gender: v})}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 md:col-span-2"><Label className="text-xs">Parent / Guardian</Label><Input value={editData.parent_name || ""} onChange={e => setEditData({...editData, parent_name: e.target.value})} /></div>
+                  </div>
+                </div>
+
+                <Separator className="bg-slate-100" />
+
+                {/* Academic Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                    <GraduationCap className="size-3" /> Academic Details
+                  </h4>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="col-span-2 space-y-1"><Label className="text-xs">University</Label><Input value={editData.university_name || ""} onChange={e => setEditData({...editData, university_name: e.target.value})} /></div>
+                    <div className="col-span-2 space-y-1"><Label className="text-xs">College</Label><Input value={editData.college_name || ""} onChange={e => setEditData({...editData, college_name: e.target.value})} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Degree</Label><Input value={editData.degree || ""} onChange={e => setEditData({...editData, degree: e.target.value})} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Department</Label><Input value={editData.department || ""} onChange={e => setEditData({...editData, department: e.target.value})} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Session</Label><Input value={editData.academic_session || ""} onChange={e => setEditData({...editData, academic_session: e.target.value})} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Semester</Label><Input value={editData.class_semester || ""} onChange={e => setEditData({...editData, class_semester: e.target.value})} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Roll Number</Label><Input value={editData.roll_number || ""} onChange={e => setEditData({...editData, roll_number: e.target.value})} /></div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Internship Domain</Label>
+                      <Select value={editData.internship_domain || ""} onValueChange={v => setEditData({...editData, internship_domain: v})}>
+                        <SelectTrigger><SelectValue placeholder="Select Domain" /></SelectTrigger>
+                        <SelectContent>
+                          {domains.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="bg-slate-100" />
+
+                {/* Emergency Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                    <Phone className="size-3" /> Emergency Contacts
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-1"><Label className="text-xs">Contact Name</Label><Input value={editData.emergency_name || ""} onChange={e => setEditData({...editData, emergency_name: e.target.value})} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Relationship</Label><Input value={editData.emergency_relation || ""} onChange={e => setEditData({...editData, emergency_relation: e.target.value})} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Contact Phone</Label><Input value={editData.emergency_contact || ""} onChange={e => setEditData({...editData, emergency_contact: e.target.value})} /></div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-4 mt-8">
+                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={processing}>{processing ? <Loader2 className="size-4 animate-spin mr-2" /> : null} Save Changes</Button>
+                </div>
+              </form>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <footer className="py-8 bg-slate-900 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800">
         <div className="container mx-auto px-4 text-center">

@@ -9,7 +9,7 @@ import { SiteNav } from "@/components/SiteNav";
 import { SiteFooter } from "@/components/SiteFooter";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2, LogIn, Mail } from "lucide-react";
+import { Eye, EyeOff, Loader2, KeyRound } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,9 +30,14 @@ const Login = () => {
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [showOtp, setShowOtp] = useState(false);
-  const [otpValue, setOtpValue] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
+
+  // Forgot Password State
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetStep, setResetStep] = useState<"email" | "otp" | "password">("email");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,72 +72,79 @@ const Login = () => {
     navigate("/dashboard");
   };
 
-  const handleSendOtp = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!email) {
-      toast.error("Please enter your email or mobile number first");
+  const handleSendResetOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!resetEmail) {
+      toast.error("Please enter your email");
       return;
     }
-    
-    const isEmail = email.includes("@");
-    setLoading(true);
-    
+    setResetLoading(true);
     try {
-      if (isEmail) {
-        const { error } = await supabase.auth.signInWithOtp({ 
-          email: email.trim(),
-          options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
-          }
-        });
-        if (error) throw error;
-        toast.success("6-digit code sent to your email!");
-      } else {
-        // Basic phone cleanup (remove spaces, etc)
-        const phone = email.replace(/\s+/g, '');
-        const { error } = await supabase.auth.signInWithOtp({ 
-          phone: phone.startsWith('+') ? phone : `+91${phone}`, // Default to India if no prefix
-        });
-        if (error) throw error;
-        toast.success("6-digit code sent to your mobile!");
-      }
-      setShowOtp(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
+      if (error) throw error;
+      toast.success("Password reset code sent to your email!");
+      setResetStep("otp");
     } catch (error: any) {
-      console.error("OTP Error:", error);
-      if (error.message.includes("rate limit") || error.message.includes("limit exceeded")) {
-        toast.error("Security limit reached. Please try again in 1 hour or check your Supabase SMTP settings.");
+      if (error.message.includes("rate limit")) {
+        toast.error("Please wait a moment before requesting another code.");
       } else {
         toast.error(error.message);
       }
     } finally {
-      setLoading(false);
+      setResetLoading(false);
     }
   };
 
-  const handleVerifyOtp = async () => {
-    if (otpValue.length !== 6) {
-      toast.error("Please enter the complete 6-digit code");
+  const handleVerifyResetOtp = async () => {
+    if (resetOtp.length !== 6) {
+      toast.error("Please enter the 6-digit code");
       return;
     }
-    setIsVerifying(true);
-    const isEmail = email.includes("@");
-    
+    setResetLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
-        [isEmail ? 'email' : 'phone']: email.trim().startsWith('+') || isEmail ? email.trim() : `+91${email.trim()}`,
-        token: otpValue,
-        type: isEmail ? 'email' : 'sms',
+        email: resetEmail,
+        token: resetOtp,
+        type: 'recovery',
       });
-      
       if (error) throw error;
-      
-      toast.success("Welcome back!");
-      navigate("/dashboard");
+      toast.success("Code verified! Please set a new password.");
+      setResetStep("password");
     } catch (error: any) {
       toast.error(error.message);
     } finally {
-      setIsVerifying(false);
+      setResetLoading(false);
     }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Password updated successfully!");
+      setShowResetDialog(false);
+      setResetStep("email");
+      setResetEmail("");
+      setResetOtp("");
+      setNewPassword("");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const openResetDialog = () => {
+    setResetEmail(email); // Pre-fill if they already typed it
+    setResetStep("email");
+    setResetOtp("");
+    setNewPassword("");
+    setShowResetDialog(true);
   };
 
   return (
@@ -156,8 +168,8 @@ const Login = () => {
 
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email / Mobile Number</Label>
-                <Input id="email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required />
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -174,13 +186,17 @@ const Login = () => {
                   <Checkbox checked={remember} onCheckedChange={(v) => setRemember(!!v)} />
                   <span>Remember me</span>
                 </label>
-                <span className="text-muted-foreground text-xs italic" title="Please contact the administrator to reset your password">
-                  Forgot password? Contact admin
-                </span>
+                <button 
+                  type="button" 
+                  onClick={openResetDialog}
+                  className="text-primary font-semibold hover:underline"
+                >
+                  Forgot password?
+                </button>
               </div>
 
               <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="size-4 animate-spin" />} Login
+                {loading && <Loader2 className="size-4 animate-spin mr-2" />} Login
               </Button>
             </form>
 
@@ -191,52 +207,99 @@ const Login = () => {
         </div>
       </main>
 
-      <Dialog open={showOtp} onOpenChange={setShowOtp}>
+      {/* Forgot Password Flow Dialog */}
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Mail className="size-5 text-primary" />
-              Verify Your Email
+              <KeyRound className="size-5 text-primary" />
+              Reset Password
             </DialogTitle>
             <DialogDescription>
-              We've sent a 6-digit code to <span className="font-bold text-slate-900">{email}</span>.
-              Enter the code below to login.
+              {resetStep === "email" && "Enter your email address and we will send you a 6-digit OTP code to reset your password."}
+              {resetStep === "otp" && `We've sent a 6-digit code to ${resetEmail}.`}
+              {resetStep === "password" && "Create a new strong password for your account."}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center space-y-6 py-4">
-            <InputOTP
-              maxLength={6}
-              value={otpValue}
-              onChange={(value) => setOtpValue(value)}
-            >
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
 
-            <Button 
-              className="w-full" 
-              onClick={handleVerifyOtp} 
-              disabled={isVerifying || otpValue.length < 6}
-            >
-              {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Verify & Login
-            </Button>
-            
-            <p className="text-xs text-center text-muted-foreground">
-              Didn't receive the code? {" "}
-              <button 
-                onClick={handleSendOtp} 
-                className="text-primary font-bold hover:underline"
-              >
-                Resend Code
-              </button>
-            </p>
+          <div className="py-4 space-y-6">
+            {resetStep === "email" && (
+              <form onSubmit={handleSendResetOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Email Address</Label>
+                  <Input 
+                    type="email" 
+                    value={resetEmail} 
+                    onChange={(e) => setResetEmail(e.target.value)} 
+                    placeholder="you@example.com" 
+                    required 
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={resetLoading}>
+                  {resetLoading && <Loader2 className="size-4 animate-spin mr-2" />} 
+                  Send OTP Code
+                </Button>
+              </form>
+            )}
+
+            {resetStep === "otp" && (
+              <div className="flex flex-col items-center justify-center space-y-6">
+                <InputOTP maxLength={6} value={resetOtp} onChange={setResetOtp}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+
+                <Button 
+                  className="w-full" 
+                  onClick={handleVerifyResetOtp} 
+                  disabled={resetLoading || resetOtp.length < 6}
+                >
+                  {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Verify Code
+                </Button>
+                
+                <p className="text-xs text-center text-muted-foreground">
+                  Didn't receive the code? {" "}
+                  <button 
+                    onClick={() => handleSendResetOtp()} 
+                    className="text-primary font-bold hover:underline"
+                    disabled={resetLoading}
+                  >
+                    Resend Code
+                  </button>
+                </p>
+              </div>
+            )}
+
+            {resetStep === "password" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>New Password</Label>
+                  <div className="relative">
+                    <Input 
+                      type={showPw ? "text" : "password"} 
+                      value={newPassword} 
+                      onChange={(e) => setNewPassword(e.target.value)} 
+                      placeholder="Min. 6 characters" 
+                      required 
+                    />
+                    <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+                <Button className="w-full" onClick={handleUpdatePassword} disabled={resetLoading || newPassword.length < 6}>
+                  {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Update Password
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -247,3 +310,4 @@ const Login = () => {
 };
 
 export default Login;
+
