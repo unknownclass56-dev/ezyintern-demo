@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteNav } from "@/components/SiteNav";
-import { SiteFooter } from "@/components/SiteFooter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -237,11 +236,11 @@ const Dashboard = () => {
               setActiveView(prev => prev === 'profile' ? 'home' : 'profile');
             }}>
               <User className="size-4" />
-              <span className="">Profile</span>
+              <span className="hidden sm:inline">Profile</span>
             </Button>
-            <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2 hidden md:flex" onClick={() => setIsOfferLetterOpen(true)}>
+            <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2" onClick={() => setIsOfferLetterOpen(true)}>
               <FileText className="size-4" />
-              <span className="">Offer Letter</span>
+              <span className="hidden sm:inline">Offer Letter</span>
             </Button>
             <div className="w-px h-4 bg-slate-200 mx-1"></div>
             <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 gap-2" onClick={async () => {
@@ -249,7 +248,7 @@ const Dashboard = () => {
               navigate("/login");
             }}>
               <LogOut className="size-4" />
-              <span className="">Logout</span>
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
 
@@ -272,18 +271,18 @@ const Dashboard = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {localStorage.getItem("impersonate_id") && (
-                <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10" onClick={() => { localStorage.removeItem("impersonate_id"); window.location.reload(); }}>
+                <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 w-full sm:w-auto" onClick={() => { localStorage.removeItem("impersonate_id"); window.location.reload(); }}>
                   Exit Preview
                 </Button>
               )}
               {isAdmin && !localStorage.getItem("impersonate_id") && (
-                <Button variant="outline" className="shadow-sm border-primary/20 hover:bg-primary/5 gap-2" onClick={() => navigate("/admin")}>
+                <Button variant="outline" className="shadow-sm border-primary/20 hover:bg-primary/5 gap-2 w-full sm:w-auto" onClick={() => navigate("/admin")}>
                   <ShieldCheck className="size-4 text-primary" /> Admin Panel
                 </Button>
               )}
-              <Button variant="hero" className="gap-2 shadow-lg" onClick={() => setIsOfferLetterOpen(true)}>
+              <Button variant="hero" className="gap-2 shadow-lg w-full sm:w-auto" onClick={() => setIsOfferLetterOpen(true)}>
                 <FileText className="size-4" /> Offer Letter
               </Button>
             </div>
@@ -798,6 +797,8 @@ const Dashboard = () => {
             </div>
           </ScrollArea>
         </DialogContent>
+      </Dialog>
+
       <Dialog open={isAssignmentsOpen} onOpenChange={setIsAssignmentsOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
