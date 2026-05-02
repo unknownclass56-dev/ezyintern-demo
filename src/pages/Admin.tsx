@@ -14,11 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, ToggleRight, DollarSign, GraduationCap, Bell } from "lucide-react";
+import { Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, ToggleRight, DollarSign, GraduationCap, Bell, FileText, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import AIAssignmentBuilder from "@/components/AIAssignmentBuilder";
+import { Sparkles } from "lucide-react";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -38,6 +40,8 @@ const Admin = () => {
   const [systemSettings, setSystemSettings] = useState<any[]>([]);
   const [myPermissions, setMyPermissions] = useState<any>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [isAIBuilderOpen, setIsAIBuilderOpen] = useState(false);
 
   // Notification States
   const [newNoticeTitle, setNewNoticeTitle] = useState("");
@@ -213,7 +217,7 @@ const Admin = () => {
         .filter(r => r.role === 'admin' || r.role === 'super_admin')
         .map(r => r.user_id);
 
-      const [p, u, c, ce, dm, cl, ss, ap, ps, pc, notifs] = await Promise.all([
+      const [p, u, c, ce, dm, cl, ss, ap, ps, pc, notifs, asgnResult] = await Promise.all([
         supabase.from("profiles").select("*").in("id", staffUserIds),
         supabase.from("universities").select("*").order("name"),
         supabase.from("colleges").select("*, universities(name)").order("name"),
@@ -225,6 +229,7 @@ const Admin = () => {
         supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(1000),
         supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(1000),
         supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(50),
+        supabase.from("assignments").select("*, assignment_submissions(id)").order("created_at", { ascending: false })
       ]);
       
       console.log("Fetched Payments:", ps.data?.length || 0);
@@ -262,6 +267,7 @@ const Admin = () => {
       setPayments(ps.data || []);
       setCancelledPayments(pc.data || []);
       setNotifications(notifs.data || []);
+      setAssignments(asgnResult.data || []);
 
       // Initial students fetch
       await fetchStudents();
@@ -619,8 +625,68 @@ const Admin = () => {
                 <TabsTrigger value="payments" className="gap-2"><DollarSign className="size-4" /> Transactions</TabsTrigger>
                 <TabsTrigger value="leads" className="gap-2"><UserPlus className="size-4" /> Leads</TabsTrigger>
                 <TabsTrigger value="notifications" className="gap-2"><Bell className="size-4" /> Notifications</TabsTrigger>
+                <TabsTrigger value="assignments" className="gap-2"><FileText className="size-4" /> Assignments</TabsTrigger>
                 {isServiceEnabled('settings') && <TabsTrigger value="settings" className="gap-2"><Building2 className="size-4" /> System Settings</TabsTrigger>}
               </TabsList>
+
+            <TabsContent value="assignments">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold flex items-center gap-2"><FileText className="size-5 text-primary" /> Manage Assignments</h2>
+                  <Button className="gap-2" onClick={() => setIsAIBuilderOpen(true)}>
+                    <Sparkles className="size-4" /> Create with AI
+                  </Button>
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {assignments.length === 0 ? (
+                    <div className="col-span-full text-center py-10 bg-white rounded-xl shadow-sm border">
+                      <FileText className="size-12 mx-auto text-slate-300 mb-3" />
+                      <p className="text-muted-foreground">No assignments have been created yet.</p>
+                      <Button className="mt-4 gap-2" onClick={() => setIsAIBuilderOpen(true)}>
+                        <Sparkles className="size-4" /> Create with AI
+                      </Button>
+                    </div>
+                  ) : (
+                    assignments.map(a => (
+                      <Card key={a.id} className="p-6 relative overflow-hidden group hover:border-primary transition-all">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                          <FileText className="size-20" />
+                        </div>
+                        <h3 className="font-bold text-lg mb-2">{a.title}</h3>
+                        <p className="text-sm text-slate-500 mb-4 line-clamp-2">{a.description}</p>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Duration</p>
+                            <p className="font-bold flex items-center gap-1.5 text-sm"><Clock className="size-3" /> {a.duration_minutes}m</p>
+                          </div>
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Marks</p>
+                            <p className="font-bold flex items-center gap-1.5 text-sm"><Award className="size-3" /> {a.total_marks}</p>
+                          </div>
+                          <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                            <div>
+                              <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Status</p>
+                              <Badge variant={a.is_active ? "default" : "secondary"}>{a.is_active ? "Active" : "Inactive"}</Badge>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Submissions</p>
+                              <p className="font-bold">{a.assignment_submissions?.length || 0}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <Button className="flex-1 gap-2" onClick={() => toast.info('Detailed submissions view coming soon!')}>
+                            <Users className="size-4" /> Submissions
+                          </Button>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </div>
+            </TabsContent>
 
             <TabsContent value="notifications">
               <div className="grid lg:grid-cols-3 gap-6">
@@ -1205,6 +1271,12 @@ const Admin = () => {
           <p>© {new Date().getFullYear()} EzyIntern Admin. All rights reserved.</p>
         </div>
       </footer>
+
+      <AIAssignmentBuilder
+        open={isAIBuilderOpen}
+        onClose={() => setIsAIBuilderOpen(false)}
+        onSaved={() => { loadAll(); }}
+      />
     </div>
   );
 };
