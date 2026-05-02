@@ -14,6 +14,11 @@ export default function AssignmentTest() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    return /android/i.test(userAgent) || /iPad|iPhone|iPod/.test(userAgent) || window.innerWidth < 768;
+  });
   const [assignment, setAssignment] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -203,6 +208,21 @@ export default function AssignmentTest() {
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center">
+        <AlertTriangle className="size-16 text-destructive mb-6" />
+        <h1 className="text-2xl font-bold mb-4">Mobile Devices Not Supported</h1>
+        <p className="text-slate-400 mb-8 max-w-md">
+          To ensure strict proctoring and a secure testing environment, this assessment can only be taken on a PC or Laptop. Please switch to a computer to continue.
+        </p>
+        <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800" onClick={() => navigate("/dashboard")}>
+          Return to Dashboard
+        </Button>
+      </div>
+    );
+  }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><Loader2 className="size-10 animate-spin text-primary" /></div>;
 
