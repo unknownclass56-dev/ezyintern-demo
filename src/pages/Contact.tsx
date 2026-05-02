@@ -76,7 +76,7 @@ const Contact = () => {
                     </div>
                     <div>
                       <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Email Inquiry</p>
-                      <a href="mailto:support@ezyintern.in" className="text-slate-700 font-bold hover:text-primary transition-colors">support@ezyintern.in</a>
+                      <a href="mailto:contact@ezyintern.in" className="text-slate-700 font-bold hover:text-primary transition-colors">contact@ezyintern.in</a>
                     </div>
                   </div>
                 </Card>

@@ -62,7 +62,7 @@ export const SiteFooter = () => (
             </li>
             <li className="flex items-center gap-3">
               <Mail className="size-5 text-primary flex-shrink-0" />
-              <a href="mailto:support@ezyintern.in" className="hover:text-white">support@ezyintern.in</a>
+              <a href="mailto:contact@ezyintern.in" className="hover:text-white">contact@ezyintern.in</a>
             </li>
           </ul>
         </div>
