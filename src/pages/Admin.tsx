@@ -213,7 +213,7 @@ const Admin = () => {
         .filter(r => r.role === 'admin' || r.role === 'super_admin')
         .map(r => r.user_id);
 
-      const [p, u, c, ce, dm, cl, ss, ap, ps, pc] = await Promise.all([
+      const [p, u, c, ce, dm, cl, ss, ap, ps, pc, notifs] = await Promise.all([
         supabase.from("profiles").select("*").in("id", staffUserIds),
         supabase.from("universities").select("*").order("name"),
         supabase.from("colleges").select("*, universities(name)").order("name"),
