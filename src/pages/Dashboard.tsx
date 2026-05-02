@@ -5,8 +5,9 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, User, GraduationCap, Phone, ShieldCheck, Download, FileText, ExternalLink, Calendar, MapPin, Award, Briefcase, Mail, Globe, BookOpen, CheckCircle2, LogOut } from "lucide-react";
+import { Loader2, User, GraduationCap, Phone, ShieldCheck, Download, FileText, ExternalLink, Calendar, MapPin, Award, Briefcase, Mail, Globe, BookOpen, CheckCircle2, LogOut, Bell, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
@@ -17,6 +18,11 @@ import { useRef } from "react";
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<'home' | 'profile'>('home');
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [assignmentsList, setAssignmentsList] = useState<any[]>([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isAssignmentsOpen, setIsAssignmentsOpen] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [academic, setAcademic] = useState<any>(null);
   const [emergency, setEmergency] = useState<any>(null);
@@ -38,11 +44,14 @@ const Dashboard = () => {
       const uid = impersonateId || session.user.id;
       const isImpersonating = !!impersonateId;
 
-      const [s, r, c, ss] = await Promise.all([
+      const [s, r, c, ss, n, a, asub] = await Promise.all([
         supabase.from("students").select("*").eq("id", uid).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", session.user.id),
         supabase.from("certificates").select("*").eq("user_id", uid).maybeSingle(),
         supabase.from("system_settings").select("*"),
+        supabase.from("notifications").select("*").or(`target_type.eq.all,target_user_id.eq.${uid}`).order("created_at", { ascending: false }).limit(20),
+        supabase.from("assignments").select("*").eq("is_active", true).order("created_at", { ascending: false }),
+        supabase.from("assignment_submissions").select("*").eq("student_id", uid)
       ]);
       const roles = r.data || [];
       const ok = roles.some((x: any) => x.role === "admin" || x.role === "super_admin");
@@ -85,6 +94,13 @@ const Dashboard = () => {
       setProfile(studentData);
       setCert(c.data);
       setSystemSettings(ss.data || []);
+      setNotifications(n.data || []);
+      
+      const assignmentsWithSubs = (a.data || []).map(assgn => {
+         const sub = (asub.data || []).find((sub: any) => sub.assignment_id === assgn.id);
+         return { ...assgn, submission: sub };
+      });
+      setAssignmentsList(assignmentsWithSubs);
       
       // Fetch live classes
       const { data: clsData } = await supabase.from("classes").select("*, internship_domains(name)").order("scheduled_at", { ascending: true });
@@ -188,14 +204,42 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2" onClick={() => {
-              const el = document.getElementById('profile-section');
-              el?.scrollIntoView({ behavior: 'smooth' });
+            <DropdownMenu open={isNotifOpen} onOpenChange={setIsNotifOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="relative p-2">
+                  <Bell className="size-5 text-slate-600" />
+                  {notifications.length > 0 && <span className="absolute top-1 right-1 size-2 rounded-full bg-destructive animate-pulse"></span>}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 p-0 shadow-elegant">
+                <div className="p-4 border-b bg-muted/20">
+                  <h3 className="font-bold">Notifications</h3>
+                </div>
+                <ScrollArea className="max-h-80">
+                  {notifications.length === 0 ? (
+                     <div className="p-4 text-sm text-center text-muted-foreground">No new notifications</div>
+                  ) : (
+                    notifications.map((notif: any) => (
+                      <div key={notif.id} className="p-4 border-b hover:bg-muted/50 transition-colors">
+                        <div className="flex justify-between items-start mb-1">
+                          <h4 className="font-bold text-sm">{notif.title}</h4>
+                          <span className="text-[10px] text-muted-foreground">{new Date(notif.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-xs text-slate-600">{notif.message}</p>
+                      </div>
+                    ))
+                  )}
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="ghost" size="sm" className={`text-slate-600 hover:text-primary gap-2 ${activeView === 'profile' ? 'bg-primary/10 text-primary' : ''}`} onClick={() => {
+              setActiveView(prev => prev === 'profile' ? 'home' : 'profile');
             }}>
               <User className="size-4" />
               <span className="">Profile</span>
             </Button>
-            <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2" onClick={() => setIsOfferLetterOpen(true)}>
+            <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2 hidden md:flex" onClick={() => setIsOfferLetterOpen(true)}>
               <FileText className="size-4" />
               <span className="">Offer Letter</span>
             </Button>
@@ -245,7 +289,9 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div id="profile-section" className="grid lg:grid-cols-3 gap-6 mb-8">
+          {activeView === 'profile' ? (
+            <>
+              <div id="profile-section" className="grid lg:grid-cols-3 gap-6 mb-8">
             <div className="lg:col-span-2 space-y-6">
               <Card className="p-8 shadow-elegant border-none bg-white relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -413,9 +459,32 @@ const Dashboard = () => {
               </div>
             </Card>
           </div>
+            </>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <Card className="p-8 flex flex-col items-center justify-center text-center gap-5 hover:-translate-y-2 transition-all cursor-pointer border-t-4 border-t-primary shadow-elegant bg-white" onClick={() => setIsOfferLetterOpen(true)}>
+                 <div className="size-20 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-inner"><FileText className="size-10" /></div>
+                 <div><h3 className="font-bold text-xl">Offer Letter</h3><p className="text-sm text-muted-foreground mt-1">Download official letter</p></div>
+              </Card>
+              <Card className="p-8 flex flex-col items-center justify-center text-center gap-5 hover:-translate-y-2 transition-all cursor-pointer border-t-4 border-t-indigo-500 shadow-elegant bg-white" onClick={() => {
+                 document.getElementById('live-classes-section')?.scrollIntoView({ behavior: 'smooth' });
+              }}>
+                 <div className="size-20 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner"><BookOpen className="size-10" /></div>
+                 <div><h3 className="font-bold text-xl">Learning</h3><p className="text-sm text-muted-foreground mt-1">View live classes</p></div>
+              </Card>
+              <Card className="p-8 flex flex-col items-center justify-center text-center gap-5 hover:-translate-y-2 transition-all cursor-pointer border-t-4 border-t-orange-500 shadow-elegant bg-white" onClick={() => setIsAssignmentsOpen(true)}>
+                 <div className="size-20 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 shadow-inner"><FileText className="size-10" /></div>
+                 <div><h3 className="font-bold text-xl">Assignments</h3><p className="text-sm text-muted-foreground mt-1">Take proctored tests</p></div>
+              </Card>
+              <Card className={`p-8 flex flex-col items-center justify-center text-center gap-5 transition-all shadow-elegant bg-white ${cert ? 'hover:-translate-y-2 cursor-pointer border-t-4 border-t-emerald-500' : 'opacity-70 cursor-not-allowed border-t-4 border-t-slate-300'}`} onClick={() => cert && setIsCertOpen(true)}>
+                 <div className={`size-20 rounded-full flex items-center justify-center shadow-inner ${cert ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}><Award className="size-10" /></div>
+                 <div><h3 className="font-bold text-xl">Certificate</h3><p className="text-sm text-muted-foreground mt-1">{cert ? "Download certificate" : "Not yet generated"}</p></div>
+              </Card>
+            </div>
+          )}
 
           {isServiceEnabled('live_classes') && (
-            <div className="mt-12">
+            <div id="live-classes-section" className="mt-12">
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-bold flex items-center gap-3"><BookOpen className="size-6 text-primary" /> Live Learning Sessions</h2>
                 <div className="h-px flex-1 mx-6 bg-slate-200 hidden md:block"></div>
@@ -729,9 +798,46 @@ const Dashboard = () => {
             </div>
           </ScrollArea>
         </DialogContent>
+      <Dialog open={isAssignmentsOpen} onOpenChange={setIsAssignmentsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2"><FileText className="size-6 text-primary" /> My Assignments</DialogTitle>
+            <DialogDescription>View and complete your scheduled assignments. Note: These are strictly proctored.</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4 mt-4">
+            <div className="space-y-4">
+              {assignmentsList.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">No assignments are currently available.</div>
+              ) : (
+                assignmentsList.map((a) => (
+                  <Card key={a.id} className="p-5 border-none shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="font-bold text-lg">{a.title}</h4>
+                      <p className="text-sm text-muted-foreground mb-2">{a.description || 'Complete this assessment within the given time.'}</p>
+                      <div className="flex items-center gap-3 text-xs font-bold text-slate-500 uppercase">
+                        <span className="flex items-center gap-1"><Clock className="size-3" /> {a.duration_minutes} Mins</span>
+                        <span className="size-1 rounded-full bg-slate-300"></span>
+                        <span className="flex items-center gap-1"><Award className="size-3" /> {a.total_marks} Marks</span>
+                      </div>
+                    </div>
+                    <div>
+                      {a.submission ? (
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate(`/assignment/${a.id}/result`)}>
+                          View Result
+                        </Button>
+                      ) : (
+                        <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 gap-2" onClick={() => navigate(`/assignment/${a.id}`)}>
+                          Start Test
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
       </Dialog>
-
-      <SiteFooter />
     </div>
   );
 };

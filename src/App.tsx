@@ -13,6 +13,8 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Admin from "./pages/Admin.tsx";
 import SuperAdmin from "./pages/SuperAdmin.tsx";
 import Benefits from "./pages/Benefits.tsx";
+import AssignmentTest from "./pages/AssignmentTest.tsx";
+import AssignmentResult from "./pages/AssignmentResult.tsx";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,8 @@ const App = () => (
           <Route path="/super-admin" element={<SuperAdmin />} />
           <Route path="/benefits" element={<Benefits />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/assignment/:id" element={<AssignmentTest />} />
+          <Route path="/assignment/:id/result" element={<AssignmentResult />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

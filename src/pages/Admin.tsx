@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, ToggleRight, DollarSign, GraduationCap } from "lucide-react";
+import { Loader2, Plus, Trash2, Award, Users, Building2, Edit, Eye, MoreHorizontal, Shield, Mail, Phone, User, BookOpen, Heart, LogIn, Ban, CheckCircle2, Download, Briefcase, UserPlus, Filter, Search, Calendar, ToggleLeft, ToggleRight, DollarSign, GraduationCap, Bell } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -37,6 +37,13 @@ const Admin = () => {
   const [cancelledPayments, setCancelledPayments] = useState<any[]>([]);
   const [systemSettings, setSystemSettings] = useState<any[]>([]);
   const [myPermissions, setMyPermissions] = useState<any>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Notification States
+  const [newNoticeTitle, setNewNoticeTitle] = useState("");
+  const [newNoticeMessage, setNewNoticeMessage] = useState("");
+  const [newNoticeTarget, setNewNoticeTarget] = useState("all");
+  const [newNoticeTargetUserId, setNewNoticeTargetUserId] = useState("");
 
   // Selection & Filters
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -96,6 +103,46 @@ const Admin = () => {
       });
     } catch (err) {
       console.error("Log Action Error:", err);
+    }
+  };
+
+  const handleSendNotification = async () => {
+    if (!newNoticeTitle.trim() || !newNoticeMessage.trim()) return toast.error("Please fill title and message");
+    if (newNoticeTarget === "specific" && !newNoticeTargetUserId.trim()) return toast.error("Please provide a student ID");
+    
+    setProcessing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      let target_uid = null;
+      if (newNoticeTarget === "specific") {
+        const { data: studentCheck } = await supabase.from("students").select("id").or(`registration_id.eq.${newNoticeTargetUserId},id.eq.${newNoticeTargetUserId}`).maybeSingle();
+        if (!studentCheck) {
+          setProcessing(false);
+          return toast.error("Student not found with this ID or Registration ID");
+        }
+        target_uid = studentCheck.id;
+      }
+
+      const { error } = await supabase.from("notifications").insert({
+        title: newNoticeTitle,
+        message: newNoticeMessage,
+        target_type: newNoticeTarget,
+        target_user_id: target_uid,
+        created_by: session?.user.id
+      });
+
+      if (error) throw error;
+
+      toast.success("Notification sent successfully!");
+      setNewNoticeTitle("");
+      setNewNoticeMessage("");
+      setNewNoticeTargetUserId("");
+      loadAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -177,6 +224,7 @@ const Admin = () => {
         supabase.from("admin_permissions").select("*").eq("user_id", session.user.id).maybeSingle(),
         supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(1000),
         supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(1000),
+        supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(50),
       ]);
       
       console.log("Fetched Payments:", ps.data?.length || 0);
@@ -213,6 +261,7 @@ const Admin = () => {
       setMyPermissions(ap.data);
       setPayments(ps.data || []);
       setCancelledPayments(pc.data || []);
+      setNotifications(notifs.data || []);
 
       // Initial students fetch
       await fetchStudents();
@@ -569,8 +618,74 @@ const Admin = () => {
                 {isServiceEnabled('live_classes') && <TabsTrigger value="classes" className="gap-2"><BookOpen className="size-4" /> Live Classes</TabsTrigger>}
                 <TabsTrigger value="payments" className="gap-2"><DollarSign className="size-4" /> Transactions</TabsTrigger>
                 <TabsTrigger value="leads" className="gap-2"><UserPlus className="size-4" /> Leads</TabsTrigger>
+                <TabsTrigger value="notifications" className="gap-2"><Bell className="size-4" /> Notifications</TabsTrigger>
                 {isServiceEnabled('settings') && <TabsTrigger value="settings" className="gap-2"><Building2 className="size-4" /> System Settings</TabsTrigger>}
               </TabsList>
+
+            <TabsContent value="notifications">
+              <div className="grid lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 space-y-6">
+                  <Card className="p-6 border-none shadow-elegant">
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Bell className="size-5 text-primary" /> Send Notification</h3>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Notice Title</Label>
+                        <Input value={newNoticeTitle} onChange={e => setNewNoticeTitle(e.target.value)} placeholder="e.g. Important Update" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Message</Label>
+                        <textarea className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]" value={newNoticeMessage} onChange={e => setNewNoticeMessage(e.target.value)} placeholder="Write your message here..."></textarea>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Target Audience</Label>
+                        <Select value={newNoticeTarget} onValueChange={setNewNoticeTarget}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Students</SelectItem>
+                            <SelectItem value="specific">Specific Student</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {newNoticeTarget === "specific" && (
+                        <div className="space-y-2">
+                          <Label>Student Reg ID or UUID</Label>
+                          <Input value={newNoticeTargetUserId} onChange={e => setNewNoticeTargetUserId(e.target.value)} placeholder="e.g. EZY-..." />
+                        </div>
+                      )}
+                      <Button className="w-full gap-2" onClick={handleSendNotification} disabled={processing}>
+                        {processing && <Loader2 className="size-4 animate-spin" />} Send Notification
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+                <div className="lg:col-span-2 space-y-6">
+                  <Card className="p-6 border-none shadow-elegant h-full flex flex-col">
+                    <h3 className="text-lg font-bold mb-4">Recent Notifications</h3>
+                    <ScrollArea className="flex-1 max-h-[500px]">
+                      <div className="space-y-4">
+                        {notifications.length === 0 ? (
+                          <div className="text-center py-10 text-muted-foreground">No notifications sent yet.</div>
+                        ) : (
+                          notifications.map((n) => (
+                            <div key={n.id} className="p-4 rounded-xl border bg-card/50">
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-bold">{n.title}</h4>
+                                <Badge variant="outline">{new Date(n.created_at).toLocaleDateString()}</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-3">{n.message}</p>
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500">Target: <Badge variant="secondary" className="text-[10px] uppercase ml-1">{n.target_type === 'all' ? 'All Students' : 'Specific Student'}</Badge></span>
+                                {n.target_type === 'specific' && n.target_user_id && <span className="text-slate-400">User ID: {n.target_user_id.substring(0, 8)}...</span>}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
 
             <TabsContent value="students">
               <Card className="p-6 border-none shadow-elegant mb-6 bg-card/50 backdrop-blur-sm">
