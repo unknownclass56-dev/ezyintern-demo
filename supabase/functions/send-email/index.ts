@@ -1,0 +1,203 @@
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const SMTP_USER = Deno.env.get("SMTP_USER") ?? "noreply@ezyintern.in";
+const SMTP_PASS = Deno.env.get("SMTP_PASS") ?? "";
+const SMTP_HOST = Deno.env.get("SMTP_HOST") ?? "smtp.hostinger.com";
+const SMTP_PORT = parseInt(Deno.env.get("SMTP_PORT") ?? "465");
+
+function registrationTemplate(data: any): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; }
+  .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .header { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); padding: 40px 32px; text-align: center; }
+  .header img { height: 48px; margin-bottom: 16px; }
+  .header h1 { color: white; font-size: 24px; margin: 0; font-weight: 700; }
+  .header p { color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px; }
+  .body { padding: 32px; }
+  .badge { display: inline-block; background: #EEF2FF; color: #4F46E5; font-size: 12px; font-weight: 700; padding: 6px 16px; border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 20px; }
+  .greeting { font-size: 20px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+  .text { font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
+  .details-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+  .details-box h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin: 0 0 16px; }
+  .detail-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
+  .detail-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .detail-label { font-size: 13px; color: #64748b; font-weight: 500; }
+  .detail-value { font-size: 13px; color: #1e293b; font-weight: 700; text-align: right; max-width: 60%; }
+  .reg-id { background: #4F46E5; color: white; font-size: 18px; font-weight: 900; text-align: center; padding: 16px; border-radius: 10px; letter-spacing: 0.1em; margin-bottom: 24px; }
+  .cta-btn { display: block; background: linear-gradient(135deg, #4F46E5, #7C3AED); color: white; text-align: center; padding: 16px 32px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; margin-bottom: 24px; }
+  .footer { background: #f8fafc; padding: 24px 32px; text-align: center; border-top: 1px solid #e2e8f0; }
+  .footer p { font-size: 12px; color: #94a3b8; margin: 4px 0; }
+  .footer strong { color: #64748b; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🎓 Welcome to EzyIntern!</h1>
+    <p>Your internship journey begins here.</p>
+  </div>
+  <div class="body">
+    <div class="badge">✅ Registration Confirmed</div>
+    <div class="greeting">Hello, ${data.fullName}!</div>
+    <p class="text">Congratulations on successfully registering for the EzyIntern programme. Your application has been received and your student portal is ready to access.</p>
+    
+    <div class="reg-id">Your Registration ID: ${data.registrationId}</div>
+    
+    <div class="details-box">
+      <h3>📋 Your Registration Details</h3>
+      <div class="detail-row"><span class="detail-label">Full Name</span><span class="detail-value">${data.fullName}</span></div>
+      <div class="detail-row"><span class="detail-label">Email Address</span><span class="detail-value">${data.email}</span></div>
+      <div class="detail-row"><span class="detail-label">Contact Number</span><span class="detail-value">${data.contact}</span></div>
+      <div class="detail-row"><span class="detail-label">University</span><span class="detail-value">${data.university}</span></div>
+      <div class="detail-row"><span class="detail-label">College</span><span class="detail-value">${data.college}</span></div>
+      <div class="detail-row"><span class="detail-label">Degree / Department</span><span class="detail-value">${data.degree} - ${data.department}</span></div>
+      <div class="detail-row"><span class="detail-label">Internship Domain</span><span class="detail-value">${data.course}</span></div>
+      <div class="detail-row"><span class="detail-label">Academic Session</span><span class="detail-value">${data.session}</span></div>
+      <div class="detail-row"><span class="detail-label">Semester</span><span class="detail-value">${data.semester}</span></div>
+    </div>
+
+    <p class="text">You can now log in to your student portal to view your offer letter, track your internship progress, and access learning resources.</p>
+    
+    <a href="https://www.ezyintern.com/login" class="cta-btn">🚀 Access Your Student Portal</a>
+    
+    <p class="text" style="font-size:13px;">If you have any questions, feel free to reach out to us. Keep this email safe — your Registration ID is required for all official communications.</p>
+  </div>
+  <div class="footer">
+    <p><strong>EzyIntern</strong> — Official Internship Programme</p>
+    <p>www.ezyintern.com | noreply@ezyintern.in</p>
+    <p style="margin-top:8px;font-size:11px;">This is an automated email. Please do not reply to this address.</p>
+  </div>
+</div>
+</body>
+</html>
+  `;
+}
+
+function certificateTemplate(data: any): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; }
+  .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .header { background: linear-gradient(135deg, #059669 0%, #0EA5E9 100%); padding: 40px 32px; text-align: center; }
+  .header h1 { color: white; font-size: 24px; margin: 0; font-weight: 700; }
+  .header p { color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px; }
+  .body { padding: 32px; }
+  .badge { display: inline-block; background: #ECFDF5; color: #059669; font-size: 12px; font-weight: 700; padding: 6px 16px; border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 20px; }
+  .greeting { font-size: 20px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+  .text { font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
+  .cert-id { background: linear-gradient(135deg, #059669, #0EA5E9); color: white; font-size: 16px; font-weight: 900; text-align: center; padding: 16px; border-radius: 10px; letter-spacing: 0.1em; margin-bottom: 24px; }
+  .details-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+  .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #d1fae5; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { font-size: 13px; color: #6b7280; font-weight: 500; }
+  .detail-value { font-size: 13px; color: #065f46; font-weight: 700; }
+  .cta-btn { display: block; background: linear-gradient(135deg, #059669, #0EA5E9); color: white; text-align: center; padding: 16px 32px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; margin-bottom: 24px; }
+  .footer { background: #f8fafc; padding: 24px 32px; text-align: center; border-top: 1px solid #e2e8f0; }
+  .footer p { font-size: 12px; color: #94a3b8; margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🏆 Certificate Ready!</h1>
+    <p>Congratulations on completing your internship!</p>
+  </div>
+  <div class="body">
+    <div class="badge">🎉 Internship Completed</div>
+    <div class="greeting">Dear ${data.studentName},</div>
+    <p class="text">We are delighted to inform you that your <strong>Internship Certificate of Completion</strong> has been officially generated and is now available for download in your student portal.</p>
+    
+    <div class="cert-id">Certificate ID: ${data.certificateId}</div>
+    
+    <div class="details-box">
+      <div class="detail-row"><span class="detail-label">Student Name</span><span class="detail-value">${data.studentName}</span></div>
+      <div class="detail-row"><span class="detail-label">Programme</span><span class="detail-value">${data.programme}</span></div>
+      <div class="detail-row"><span class="detail-label">Certificate ID</span><span class="detail-value">${data.certificateId}</span></div>
+      <div class="detail-row"><span class="detail-label">Issue Date</span><span class="detail-value">${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span></div>
+    </div>
+
+    <a href="https://www.ezyintern.com/dashboard" class="cta-btn">📥 Download Your Certificate</a>
+    
+    <p class="text">You can also verify your certificate anytime at <strong>www.ezyintern.com/verify</strong> using your Certificate ID.</p>
+  </div>
+  <div class="footer">
+    <p><strong>EzyIntern</strong> — Official Internship Programme</p>
+    <p>This is an automated notification. Do not reply.</p>
+  </div>
+</div>
+</body>
+</html>
+  `;
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const { type, to, data } = await req.json();
+
+    if (!to || !type) {
+      return new Response(JSON.stringify({ error: "Missing 'to' or 'type'" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    let subject = "";
+    let htmlContent = "";
+
+    if (type === "registration_confirmation") {
+      subject = `✅ Registration Confirmed — EzyIntern (ID: ${data.registrationId})`;
+      htmlContent = registrationTemplate(data);
+    } else if (type === "certificate_generated") {
+      subject = `🏆 Your EzyIntern Certificate is Ready — ${data.certificateId}`;
+      htmlContent = certificateTemplate(data);
+    } else {
+      return new Response(JSON.stringify({ error: "Unknown email type" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const client = new SmtpClient();
+    await client.connectTLS({
+      hostname: SMTP_HOST,
+      port: SMTP_PORT,
+      username: SMTP_USER,
+      password: SMTP_PASS,
+    });
+
+    await client.send({
+      from: `EzyIntern <${SMTP_USER}>`,
+      to: to,
+      subject: subject,
+      html: htmlContent,
+    });
+
+    await client.close();
+
+    console.log(`Email sent [${type}] to: ${to}`);
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+
+  } catch (err: any) {
+    console.error("Email send error:", err.message);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+});

@@ -21,6 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import AIAssignmentBuilder from "@/components/AIAssignmentBuilder";
 import { Sparkles } from "lucide-react";
+import { sendCertificateEmail } from "@/lib/email";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -217,8 +218,13 @@ const Admin = () => {
         .filter(r => r.role === 'admin' || r.role === 'super_admin')
         .map(r => r.user_id);
 
+      // Guard: if no staffUserIds, skip profiles fetch to avoid Supabase error
+      const profilesQuery = staffUserIds.length > 0
+        ? supabase.from("profiles").select("*").in("id", staffUserIds)
+        : supabase.from("profiles").select("*").limit(0);
+
       const [p, u, c, ce, dm, cl, ss, ap, ps, pc, notifs, asgnResult] = await Promise.all([
-        supabase.from("profiles").select("*").in("id", staffUserIds),
+        profilesQuery,
         supabase.from("universities").select("*").order("name"),
         supabase.from("colleges").select("*, universities(name)").order("name"),
         supabase.from("certificates").select("*").order("created_at", { ascending: false }).limit(100),
@@ -331,6 +337,20 @@ const Admin = () => {
       );
 
       toast.success(`Successfully generated ${selectedStudents.length} certificates!`);
+
+      // Send certificate notification emails
+      for (const issue of issues) {
+        const s = students.find(x => x.id === issue.user_id);
+        if (s?.email) {
+          sendCertificateEmail({
+            to: s.email,
+            studentName: issue.student_name,
+            programme: certProgram,
+            certificateId: issue.certificate_id,
+          });
+        }
+      }
+
       setSelectedStudents([]);
       loadAll();
     } catch (err: any) {

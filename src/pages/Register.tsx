@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, CheckCircle2, ChevronLeft, ChevronRight, UserCheck, MessageSquare, ArrowRight, Building2 } from "lucide-react";
 import { z } from "zod";
+import { sendRegistrationEmail } from "@/lib/email";
 
 declare global {
   interface Window {
@@ -319,6 +320,22 @@ const Register = () => {
       }
 
       console.log("Student data inserted successfully");
+
+      // Send registration confirmation email
+      sendRegistrationEmail({
+        to: email,
+        fullName,
+        email,
+        contact,
+        registrationId: regId,
+        university: universityName,
+        college: collegeName,
+        degree,
+        department: departmentName,
+        course,
+        session,
+        semester: classSem,
+      });
 
       // Keep profiles sync for auth consistency
       console.log("Upserting profile for user:", userId);

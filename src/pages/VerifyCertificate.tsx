@@ -1,62 +1,113 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { SiteNav } from "@/components/SiteNav";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, CheckCircle2, XCircle, Loader2, Award, User, Calendar, ShieldCheck } from "lucide-react";
+import { Search, CheckCircle2, XCircle, Loader2, Award, User, Calendar, ShieldCheck, Download } from "lucide-react";
 import { toast } from "sonner";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const VerifyCertificate = () => {
-  const [certId, setCertId] = useState("");
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [generating, setGenerating] = useState(false);
+  const [cert, setCert] = useState<any>(null);
+  const [student, setStudent] = useState<any>(null);
   const [error, setError] = useState(false);
+  const certRef = useRef<HTMLDivElement>(null);
 
   const handleVerify = async () => {
-    if (!certId.trim()) return toast.error("Please enter a Certificate ID");
+    const q = query.trim();
+    if (!q) return toast.error("Please enter a Certificate ID, Email, or Phone Number");
     setLoading(true);
     setError(false);
-    setResult(null);
+    setCert(null);
+    setStudent(null);
 
     try {
-      // 1. Try searching by Certificate ID
-      let { data, error: sError } = await supabase
+      let certData: any = null;
+      let studentData: any = null;
+
+      // 1. Try by Certificate ID
+      const { data: byId } = await supabase
         .from("certificates")
         .select("*")
-        .eq("certificate_id", certId.trim())
+        .eq("certificate_id", q)
         .maybeSingle();
 
-      // 2. If not found, try searching by Email or Phone via the students table
-      if (!data) {
-        const { data: student } = await supabase
+      if (byId) {
+        certData = byId;
+      } else {
+        // 2. Try by Email or Phone in students table
+        const { data: foundStudent } = await supabase
           .from("students")
-          .select("id")
-          .or(`email.eq.${certId.trim()},contact_number.eq.${certId.trim()}`)
+          .select("*")
+          .or(`email.ilike.${q},contact_number.eq.${q}`)
           .maybeSingle();
 
-        if (student) {
-          const { data: certData } = await supabase
+        if (foundStudent) {
+          studentData = foundStudent;
+          const { data: byCert } = await supabase
             .from("certificates")
             .select("*")
-            .eq("user_id", student.id)
+            .eq("user_id", foundStudent.id)
             .maybeSingle();
-          data = certData;
+          certData = byCert;
         }
       }
 
-      if (data) {
-        setResult(data);
-        toast.success("Certificate Verified Successfully!");
+      // 3. If cert found but no student yet, fetch student
+      if (certData && !studentData) {
+        const { data: s } = await supabase
+          .from("students")
+          .select("*")
+          .eq("id", certData.user_id)
+          .maybeSingle();
+        studentData = s;
+      }
+
+      if (certData) {
+        setCert(certData);
+        setStudent(studentData);
+        toast.success("Certificate verified successfully!");
       } else {
         setError(true);
-        toast.error("No certificate found");
+        toast.error("No certificate found for this query.");
       }
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "Verification failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadCert = async () => {
+    if (!certRef.current) return;
+    setGenerating(true);
+    try {
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:absolute;top:-9999px;left:-9999px;width:794px;background:white;";
+      const clone = certRef.current.cloneNode(true) as HTMLElement;
+      clone.style.width = "794px";
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
+
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`EzyIntern_Certificate_${cert?.certificate_id || student?.full_name?.replace(/\s+/g, "_")}.pdf`);
+      toast.success("Certificate downloaded!");
+      document.body.removeChild(wrapper);
+    } catch (e) {
+      toast.error("Download failed. Please try again.");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -64,14 +115,14 @@ const VerifyCertificate = () => {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <SiteNav />
       <main className="flex-1 py-20">
-        <div className="container mx-auto px-6 max-w-4xl">
+        <div className="container mx-auto px-6 max-w-5xl">
           <div className="text-center mb-12">
             <div className="inline-flex size-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">
               <Search className="size-8 text-primary" />
             </div>
             <h1 className="text-4xl font-black text-slate-900 mb-4">Certificate Verification</h1>
             <p className="text-slate-500 max-w-xl mx-auto">
-              Verify the authenticity of EzyIntern certificates. Enter the unique Certificate ID printed on the document.
+              Verify the authenticity of EzyIntern certificates. Enter the Certificate ID, registered Email, or Phone Number.
             </p>
           </div>
 
@@ -79,10 +130,10 @@ const VerifyCertificate = () => {
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
-                <Input 
-                  value={certId}
-                  onChange={(e) => setCertId(e.target.value)}
-                  placeholder="Certificate ID, Email or Phone" 
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Certificate ID / Email / Phone Number"
                   className="h-14 pl-12 text-lg font-bold border-2 focus:border-primary/50"
                   onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 />
@@ -93,65 +144,172 @@ const VerifyCertificate = () => {
             </div>
           </Card>
 
-          {result && (
-            <Card className="overflow-hidden border-none shadow-2xl animate-fade-in-up">
-              <div className="bg-green-600 p-6 text-white flex items-center gap-4">
-                <CheckCircle2 className="size-8" />
-                <div>
-                  <h3 className="text-xl font-bold">Authentic Certificate</h3>
-                  <p className="text-sm opacity-80">This certificate is verified and issued by EzyIntern.</p>
+          {/* Verified Result */}
+          {cert && (
+            <div className="space-y-6 animate-fade-in-up">
+              {/* Status Banner */}
+              <div className="bg-green-600 p-5 rounded-2xl text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <CheckCircle2 className="size-8 shrink-0" />
+                  <div>
+                    <h3 className="text-xl font-bold">Authentic Certificate</h3>
+                    <p className="text-sm opacity-80">Verified and issued by EzyIntern — Certificate ID: {cert.certificate_id}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  className="gap-2 shrink-0 font-bold"
+                  onClick={downloadCert}
+                  disabled={generating}
+                >
+                  {generating ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                  Download Certificate
+                </Button>
+              </div>
+
+              {/* Quick Info Cards */}
+              <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { icon: User, label: "Intern Name", value: student?.full_name || cert.student_name },
+                  { icon: Award, label: "Program", value: student?.course || cert.internship_name },
+                  { icon: Calendar, label: "Duration", value: student?.internship_duration || cert.duration || "—" },
+                  { icon: ShieldCheck, label: "Status", value: cert.status || "Active", green: true },
+                ].map(({ icon: Icon, label, value, green }) => (
+                  <Card key={label} className="p-4 border-none shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center text-primary shrink-0">
+                        <Icon className="size-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-bold text-slate-400">{label}</p>
+                        <p className={`font-bold text-sm ${green ? 'text-green-600' : ''}`}>{value}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Full Certificate Preview */}
+              <div className="bg-slate-200 p-6 rounded-2xl">
+                <p className="text-xs font-bold uppercase text-slate-500 mb-4 text-center tracking-widest">Certificate Preview</p>
+                <div className="flex justify-center overflow-x-auto">
+                  <div
+                    ref={certRef}
+                    className="w-full max-w-[794px] bg-white shadow-2xl p-[12mm] md:p-[15mm] text-slate-900 font-sans leading-snug min-h-[297mm] relative overflow-hidden flex flex-col"
+                    style={{ height: 'auto' }}
+                  >
+                    {/* Background Watermark */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0 mt-20 select-none opacity-[0.05]">
+                      <div className="bg-[#5AA3E6] rounded-[3rem] w-[450px] h-[450px] flex items-center justify-center grayscale">
+                        <span className="text-white font-black text-[300px] tracking-tighter leading-none">EI</span>
+                      </div>
+                    </div>
+
+                    {/* Header */}
+                    <div className="-mx-[12mm] md:-mx-[15mm] -mt-[12mm] md:-mt-[15mm] mb-6 relative z-10">
+                      <img src="/cert-header.png" alt="Certificate Header" className="w-full h-auto block" onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/offer-letter-header.png';
+                      }} />
+                    </div>
+
+                    {/* Title */}
+                    <div className="relative z-10 text-center space-y-1 mb-6">
+                      <h1 className="text-2xl font-bold text-[#5AA3E6] mb-4">Certificate of Completion</h1>
+                      <p className="text-[13px]">This is to certify that</p>
+                      <p className="text-lg font-bold">Mr./Ms. {student?.full_name || cert.student_name},</p>
+                      <p className="text-[13px]">S/o or D/o</p>
+                      <p className="text-lg font-bold">{student?.parent_name || student?.father_name || "[Father's/Guardian's Name]"}</p>
+                      <p className="text-[13px]">bearing University Registration/Enrolment No. <span className="font-bold">{student?.registration_id || "—"}</span></p>
+                      <p className="text-[13px]">of</p>
+                      <p className="text-lg font-bold">{student?.college_name || "—"}</p>
+                      <p className="text-[13px]">Session {student?.academic_session || "2024-25"}, with Major in <span className="font-bold">{student?.degree || "—"}</span>,</p>
+                      <p className="text-[13px]">has successfully completed his/her internship with our organisation.</p>
+                    </div>
+
+                    {/* Table 1 */}
+                    <div className="relative z-10 w-full border border-[#5AA3E6] mb-6 text-[12px]">
+                      {[
+                        ["Internship Domain", student?.course || cert.internship_name || "—"],
+                        ["Internship Duration", cert.duration || student?.internship_duration || "—"],
+                        ["Total Hours Completed", "120 Hours"],
+                        ["Mode of Internship", "Offline / Online / Hybrid"],
+                        ["Overall Attendance Percentage", "100%"],
+                        ["Overall Marks Percentage", "100%"],
+                      ].map(([label, value], i, arr) => (
+                        <div key={i} className={`flex ${i < arr.length - 1 ? 'border-b border-[#5AA3E6]' : ''}`}>
+                          <div className="w-[40%] font-bold p-2 border-r border-[#5AA3E6] flex items-center justify-center text-center bg-white">{label}</div>
+                          <div className="w-[60%] p-2 flex items-center justify-center text-center bg-white/60">{value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Table 2 */}
+                    <div className="relative z-10 w-full mb-8">
+                      <h3 className="text-[13px] font-bold text-[#5AA3E6] mb-1">Internship Performance Assessment</h3>
+                      <div className="border border-[#5AA3E6] text-[12px]">
+                        <div className="flex bg-[#5AA3E6] text-white font-bold">
+                          <div className="w-[70%] p-2 border-r border-[#5AA3E6] text-center">Assessment Criteria</div>
+                          <div className="w-[30%] p-2 text-center">Rating</div>
+                        </div>
+                        <div className="flex bg-white/60">
+                          <div className="w-[70%] p-3 border-r border-[#5AA3E6] text-center leading-snug">
+                            Technical Knowledge & Application, Quality of Work & Task Completion, Initiative & Problem-Solving Ability, Communication & Interpersonal Skills, Punctuality, Discipline & Professional Conduct
+                          </div>
+                          <div className="w-[30%] p-3 flex flex-col items-center justify-center text-center text-[11px]">
+                            <span className="font-bold">Outstanding</span> / Good / Satisfactory / Needs Improvement
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer with QR */}
+                    <div className="-mx-[12mm] md:-mx-[15mm] -mb-[12mm] md:-mb-[15mm] relative z-10 mt-auto">
+                      <div className="relative">
+                        <img src="/cert-footer.png" alt="Certificate Footer" className="w-full h-auto block" onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/offer-letter-footer.png';
+                        }} />
+                        <div className="absolute bottom-40 right-6 md:right-8 flex items-center gap-4 bg-white/90 backdrop-blur-sm p-3 rounded-xl border border-[#5AA3E6]/20 shadow-sm z-20">
+                          <div className="relative size-[68px] shrink-0 border border-slate-200 p-1 bg-white rounded-lg">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.ezyintern.com/verify?id=${cert.certificate_id}`}
+                              alt="QR Code"
+                              className="w-full h-full"
+                              crossOrigin="anonymous"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="bg-[#5AA3E6] text-white font-black text-[9px] px-1 py-0.5 rounded-sm shadow-sm leading-none">EI</div>
+                            </div>
+                          </div>
+                          <div className="text-[11px] leading-snug space-y-1">
+                            <p className="text-slate-800 flex items-center">
+                              <span className="font-bold w-24">Certificate ID</span>
+                              <span className="font-black mx-1">:</span>
+                              <span className="text-[#5AA3E6] font-black tracking-wide">{cert.certificate_id}</span>
+                            </p>
+                            <p className="text-slate-800 flex items-center">
+                              <span className="font-bold w-24">Date of Issue</span>
+                              <span className="font-black mx-1">:</span>
+                              <span className="text-[#5AA3E6] font-black">{new Date(cert.created_at || Date.now()).toLocaleDateString('en-GB')}</span>
+                            </p>
+                            <div className="pt-1 mt-1 border-t border-slate-200">
+                              <p className="text-[9px] text-slate-600 font-bold mb-0.5">To verify this certificate:</p>
+                              <p className="text-[10px] text-[#5AA3E6] font-black tracking-wide">www.ezyintern.com/certificate-verification</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="p-8 md:p-12 bg-white grid md:grid-cols-2 gap-12">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="size-12 rounded-full bg-slate-100 flex items-center justify-center text-primary">
-                      <User className="size-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Intern Name</p>
-                      <p className="text-xl font-black">{result.student_name}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="size-12 rounded-full bg-slate-100 flex items-center justify-center text-primary">
-                      <Award className="size-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Program / Domain</p>
-                      <p className="text-xl font-black">{result.internship_name}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="size-12 rounded-full bg-slate-100 flex items-center justify-center text-primary">
-                      <Calendar className="size-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Duration</p>
-                      <p className="font-bold">{result.duration}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="size-12 rounded-full bg-slate-100 flex items-center justify-center text-primary">
-                      <ShieldCheck className="size-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Certificate Status</p>
-                      <p className="font-bold text-green-600">{result.status || "Active"}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
+            </div>
           )}
 
           {error && (
             <Card className="p-10 text-center border-none shadow-elegant bg-red-50 animate-fade-in-up">
               <XCircle className="size-12 text-red-500 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-red-900 mb-2">Verification Failed</h3>
-              <p className="text-red-700">The certificate ID you entered was not found in our records. Please double-check the ID or contact support.</p>
+              <p className="text-red-700">No certificate found for the provided ID, email, or phone number. Please double-check and try again, or contact support.</p>
             </Card>
           )}
         </div>
