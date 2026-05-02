@@ -625,10 +625,10 @@ const Dashboard = () => {
                       { l: "College / Institution", v: profile?.college_name },
                       { l: "Department & Semester", v: `${profile?.department || profile?.degree} — ${profile?.class_semester || profile?.class_sem || "Semester V"}` },
                       { l: "Internship Domain", v: profile?.course || profile?.internship_domain || "General Training" },
-                      { l: "Internship Duration", v: "120 Hours" },
+                      { l: "Internship Duration", v: profile?.internship_duration || "120 Hours" },
                       { l: "Mode of Internship", v: "Online (as approved by College)" },
-                      { l: "Internship Start Date", v: new Date(profile?.created_at || Date.now()).toLocaleDateString('en-GB') },
-                      { l: "Expected End Date", v: new Date(new Date(profile?.created_at || Date.now()).getTime() + 30*24*60*60*1000).toLocaleDateString('en-GB') },
+                      { l: "Internship Start Date", v: profile?.joining_date ? new Date(profile.joining_date).toLocaleDateString('en-GB') : new Date(profile?.created_at || Date.now()).toLocaleDateString('en-GB') },
+                      { l: "Expected End Date", v: profile?.completion_date ? new Date(profile.completion_date).toLocaleDateString('en-GB') : new Date(new Date(profile?.created_at || Date.now()).getTime() + 30*24*60*60*1000).toLocaleDateString('en-GB') },
                       { l: "Stipend", v: "Not Applicable — Academic Programme" }
                     ].map((row, i) => (
                       <div key={i} className="grid grid-cols-[220px_20px_1fr] items-start">
@@ -710,14 +710,20 @@ const Dashboard = () => {
                     <div className="w-[40%] font-bold p-2 border-r border-[#5AA3E6] flex items-center justify-center text-center bg-white">Internship Domain</div>
                     <div className="w-[60%] p-2 flex items-center justify-center text-center bg-white/60">{profile?.course}</div>
                   </div>
-                  <div className="flex border-b border-[#5AA3E6]">
-                    <div className="w-[40%] font-bold p-2 border-r border-[#5AA3E6] flex items-center justify-center text-center bg-white">Internship Duration</div>
-                    <div className="w-[60%] p-2 flex items-center justify-center text-center bg-white/60">From {new Date().toLocaleDateString('en-GB')} to {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-GB')}</div>
-                  </div>
-                  <div className="flex border-b border-[#5AA3E6]">
-                    <div className="w-[40%] font-bold p-2 border-r border-[#5AA3E6] flex items-center justify-center text-center bg-white">Total Hours Completed</div>
-                    <div className="w-[60%] p-2 flex items-center justify-center text-center bg-white/60">120 Hours</div>
-                  </div>
+                   <div className="flex border-b border-[#5AA3E6]">
+                     <div className="w-[40%] font-bold p-2 border-r border-[#5AA3E6] flex items-center justify-center text-center bg-white">Internship Duration</div>
+                     <div className="w-[60%] p-2 flex items-center justify-center text-center bg-white/60">
+                       {profile?.joining_date && profile?.completion_date ? (
+                         `From ${new Date(profile.joining_date).toLocaleDateString('en-GB')} to ${new Date(profile.completion_date).toLocaleDateString('en-GB')}`
+                       ) : (
+                         `From ${new Date(profile?.created_at || Date.now()).toLocaleDateString('en-GB')} to ${new Date(new Date(profile?.created_at || Date.now()).getTime() + 30*24*60*60*1000).toLocaleDateString('en-GB')}`
+                       )}
+                     </div>
+                   </div>
+                   <div className="flex border-b border-[#5AA3E6]">
+                     <div className="w-[40%] font-bold p-2 border-r border-[#5AA3E6] flex items-center justify-center text-center bg-white">Total Hours Completed</div>
+                     <div className="w-[60%] p-2 flex items-center justify-center text-center bg-white/60">{profile?.internship_duration || "120 Hours"}</div>
+                   </div>
                   <div className="flex border-b border-[#5AA3E6]">
                     <div className="w-[40%] font-bold p-2 border-r border-[#5AA3E6] flex items-center justify-center text-center bg-white">Mode of Internship</div>
                     <div className="w-[60%] p-2 flex items-center justify-center text-center bg-white/60">Offline / Online / Hybrid</div>

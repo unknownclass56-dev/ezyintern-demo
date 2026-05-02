@@ -59,6 +59,9 @@ const Admin = () => {
   const [domainFilter, setDomainFilter] = useState("all");
   const [uniFilter, setUniFilter] = useState("all");
   const [collegeFilter, setCollegeFilter] = useState("all");
+  const [payStartDate, setPayStartDate] = useState("");
+  const [payEndDate, setPayEndDate] = useState("");
+  const [payCollegeFilter, setPayCollegeFilter] = useState("all");
 
   // Pagination
   const [studentPage, setStudentPage] = useState(0);
@@ -170,6 +173,10 @@ const Admin = () => {
         class_semester: editData.class_semester,
         roll_number: editData.roll_number,
         internship_domain: editData.internship_domain,
+        registration_id: editData.registration_id,
+        joining_date: editData.joining_date,
+        completion_date: editData.completion_date,
+        internship_duration: editData.internship_duration,
         emergency_name: editData.emergency_name,
         emergency_relation: editData.emergency_relation,
         emergency_contact: editData.emergency_contact
@@ -638,6 +645,33 @@ const Admin = () => {
     
     return true;
   };
+
+  // Payment Filtering Logic
+  const filteredPayments = payments.filter(pay => {
+    // Date filter
+    if (payStartDate) {
+      const payDate = new Date(pay.created_at);
+      const start = new Date(payStartDate);
+      start.setHours(0, 0, 0, 0);
+      if (payDate < start) return false;
+    }
+    if (payEndDate) {
+      const payDate = new Date(pay.created_at);
+      const end = new Date(payEndDate);
+      end.setHours(23, 59, 59, 999);
+      if (payDate > end) return false;
+    }
+    
+    // College filter
+    if (payCollegeFilter !== "all") {
+      const student = students.find(s => s.email === pay.email);
+      if (student?.college_name !== payCollegeFilter) return false;
+    }
+    
+    return true;
+  });
+
+  const totalPaymentAmount = filteredPayments.reduce((sum, pay) => sum + ((pay.amount_paise || 0) / 100), 0);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="size-8 animate-spin text-primary" /></div>;
   if (!allowed) return <div className="p-10 text-center">Access Denied</div>;
@@ -1128,47 +1162,84 @@ const Admin = () => {
               <div className="space-y-6">
                 <Card className="p-6 border-none shadow-elegant">
                   <div className="flex items-center justify-between mb-6">
-                     <div className="flex items-center gap-4">
-                       <h3 className="text-xl font-bold flex items-center gap-2 text-green-600"><CheckCircle2 className="size-5" /> Successful Transactions</h3>
-                       <Button variant="ghost" size="sm" onClick={loadAll} className="size-8 p-0"><Loader2 className={`size-4 ${loading ? 'animate-spin' : ''}`} /></Button>
-                     </div>
-                     <Badge variant="hero" className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-4 py-1.5 font-bold">Total: {payments.length}</Badge>
-                   </div>
+                    <div className="flex items-center gap-4">
+                      <h3 className="text-xl font-bold flex items-center gap-2 text-green-600"><CheckCircle2 className="size-5" /> Successful Transactions</h3>
+                      <Button variant="ghost" size="sm" onClick={loadAll} className="size-8 p-0"><Loader2 className={`size-4 ${loading ? 'animate-spin' : ''}`} /></Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 px-4 py-1.5 font-black text-sm">TOTAL AMOUNT: ₹{totalPaymentAmount.toLocaleString()}</Badge>
+                      <Badge variant="hero" className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-4 py-1.5 font-bold">Count: {filteredPayments.length}</Badge>
+                    </div>
+                  </div>
+ 
+                  {/* Payment Filters */}
+                  <Card className="p-4 border-none shadow-sm bg-muted/20 mb-6">
+                    <div className="grid md:grid-cols-4 gap-4 items-end">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Start Date</Label>
+                        <Input type="date" className="h-9" value={payStartDate} onChange={e => setPayStartDate(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">End Date</Label>
+                        <Input type="date" className="h-9" value={payEndDate} onChange={e => setPayEndDate(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Filter by College</Label>
+                        <Select value={payCollegeFilter} onValueChange={setPayCollegeFilter}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="All Colleges" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Colleges</SelectItem>
+                            {Array.from(new Set(students.map(s => s.college_name).filter(Boolean))).map(college => (
+                              <SelectItem key={college} value={college}>{college}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button variant="outline" size="sm" className="h-9 gap-2" onClick={() => { setPayStartDate(""); setPayEndDate(""); setPayCollegeFilter("all"); }}>
+                        <Filter className="size-3" /> Reset
+                      </Button>
+                    </div>
+                  </Card>
                   <ScrollArea className="h-[450px]">
                     <Table>
-                      <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Student Details</TableHead><TableHead>Transaction ID</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Profile</TableHead></TableRow></TableHeader>
+                      <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Student Details</TableHead><TableHead>College</TableHead><TableHead>Transaction ID</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Profile</TableHead></TableRow></TableHeader>
                       <TableBody>
-                        {payments.map(pay => (
-                          <TableRow key={pay.id}>
-                            <TableCell className="text-[10px] font-medium">{new Date(pay.created_at).toLocaleString()}</TableCell>
-                            <TableCell>
-                              <div className="font-bold text-slate-800">{pay.full_name || pay.email}</div>
-                              <div className="text-[10px] text-muted-foreground">{pay.email}</div>
-                            </TableCell>
-                            <TableCell><Badge variant="outline" className="text-[10px] font-mono">{pay.payment_id}</Badge></TableCell>
-                            <TableCell className="font-black text-slate-800">₹{(pay.amount_paise || 0) / 100}</TableCell>
-                            <TableCell><Badge className="bg-green-500 text-[10px] uppercase">Captured</Badge></TableCell>
-                            <TableCell className="text-right">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="size-8 p-0" 
-                                onClick={() => {
-                                  const student = students.find(s => s.email === pay.email);
-                                  if (student) {
-                                    setSelectedUser(student);
-                                    setIsViewDialogOpen(true);
-                                  } else {
-                                    toast.error("Student record not found in database");
-                                  }
-                                }}
-                              >
-                                <Eye className="size-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {payments.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No transactions found.</TableCell></TableRow>}
+                        {filteredPayments.map(pay => {
+                          const student = students.find(s => s.email === pay.email);
+                          return (
+                            <TableRow key={pay.id}>
+                              <TableCell className="text-[10px] font-medium">{new Date(pay.created_at).toLocaleString()}</TableCell>
+                              <TableCell>
+                                <div className="font-bold text-slate-800">{pay.full_name || pay.email}</div>
+                                <div className="text-[10px] text-muted-foreground">{pay.email}</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-[10px] font-bold text-slate-500 uppercase">{student?.college_name || "—"}</div>
+                              </TableCell>
+                              <TableCell><Badge variant="outline" className="text-[10px] font-mono">{pay.payment_id}</Badge></TableCell>
+                              <TableCell className="font-black text-slate-800">₹{(pay.amount_paise || 0) / 100}</TableCell>
+                              <TableCell><Badge className="bg-green-500 text-[10px] uppercase">Captured</Badge></TableCell>
+                              <TableCell className="text-right">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="size-8 p-0" 
+                                  onClick={() => {
+                                    if (student) {
+                                      setSelectedUser(student);
+                                      setIsViewDialogOpen(true);
+                                    } else {
+                                      toast.error("Student record not found in database");
+                                    }
+                                  }}
+                                >
+                                  <Eye className="size-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {filteredPayments.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">No transactions found matching filters.</TableCell></TableRow>}
                       </TableBody>
                     </Table>
                   </ScrollArea>
@@ -1381,8 +1452,35 @@ const Admin = () => {
                 </div>
 
                 <Separator className="bg-slate-100" />
-
-                {/* Emergency Section */}
+ 
+                 {/* Internship Details Section */}
+                 <div className="space-y-4">
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                     <Briefcase className="size-3" /> Internship Information
+                   </h4>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div className="space-y-1">
+                       <Label className="text-xs">Intern ID (Registration ID)</Label>
+                       <Input value={editData.registration_id || ""} onChange={e => setEditData({...editData, registration_id: e.target.value})} placeholder="e.g. EZY/2026/INT/10001" />
+                     </div>
+                     <div className="space-y-1">
+                       <Label className="text-xs">Internship Duration</Label>
+                       <Input value={editData.internship_duration || ""} onChange={e => setEditData({...editData, internship_duration: e.target.value})} placeholder="e.g. 1 Month / 120 Hours" />
+                     </div>
+                     <div className="space-y-1">
+                       <Label className="text-xs">Date of Joining</Label>
+                       <Input type="date" value={editData.joining_date || ""} onChange={e => setEditData({...editData, joining_date: e.target.value})} />
+                     </div>
+                     <div className="space-y-1">
+                       <Label className="text-xs">Date of Completion</Label>
+                       <Input type="date" value={editData.completion_date || ""} onChange={e => setEditData({...editData, completion_date: e.target.value})} />
+                     </div>
+                   </div>
+                 </div>
+ 
+                 <Separator className="bg-slate-100" />
+ 
+                 {/* Emergency Section */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
                     <Phone className="size-3" /> Emergency Contacts
