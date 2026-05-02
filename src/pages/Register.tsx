@@ -277,7 +277,27 @@ const Register = () => {
         if (payError) console.error("Payment logging error:", payError);
       }
 
-      const regId = `EZY-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      // Fetch the last student to determine the next sequential ID
+      const { data: lastStudent } = await supabase
+        .from("students")
+        .select("registration_id")
+        .not("registration_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let nextSeq = 10001;
+      if (lastStudent?.registration_id) {
+        const parts = lastStudent.registration_id.split('/');
+        if (parts.length === 4) {
+          const lastNum = parseInt(parts[3], 10);
+          if (!isNaN(lastNum)) {
+            nextSeq = lastNum + 1;
+          }
+        }
+      }
+      const currentYear = new Date().getFullYear();
+      const regId = `EZY/${currentYear}/INT/${nextSeq}`;
 
       // Helper to get names from IDs
       const universityName = unis.find(u => u.id === universityId)?.name || "";

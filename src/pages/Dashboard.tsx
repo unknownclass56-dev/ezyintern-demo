@@ -599,7 +599,7 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex justify-between text-[13px] font-bold mb-6 relative z-10">
-                  <p>Letter Ref. No.: <span className="font-black text-slate-900">EZY/2026/INT/{10000 + (parseInt(profile?.registration_id?.split('-').pop() || "0", 16) % 1000) + 1}</span></p>
+                  <p>Letter Ref. No.: <span className="font-black text-slate-900">{profile?.registration_id?.includes("EZY/") ? profile.registration_id : `EZY/2026/INT/${10000 + (parseInt(profile?.registration_id?.split('-').pop() || "0", 16) % 1000) + 1}`}</span></p>
                   <p>Date: <span className="font-bold text-slate-900">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span></p>
                 </div>
 
@@ -773,12 +773,12 @@ const Dashboard = () => {
                         <p className="text-slate-800 flex items-center">
                           <span className="font-bold w-24">Reference No.</span> 
                           <span className="font-black mx-1">:</span>
-                          <span className="text-[#5AA3E6] font-black tracking-wide">EZY/2026/INT/{10000 + (parseInt(profile?.registration_id?.split('-').pop() || "0", 16) % 1000) + 1}</span>
+                          <span className="text-[#5AA3E6] font-black tracking-wide">{profile?.registration_id?.includes("EZY/") ? profile.registration_id : `EZY/2026/INT/${10000 + (parseInt(profile?.registration_id?.split('-').pop() || "0", 16) % 1000) + 1}`}</span>
                         </p>
                         <p className="text-slate-800 flex items-center">
                           <span className="font-bold w-24">Certificate ID</span> 
                           <span className="font-black mx-1">:</span>
-                          <span className="text-[#5AA3E6] font-black tracking-wide">{cert?.certificate_id || `CERT-${(profile?.id || '0').substring(0, 8).toUpperCase()}`}</span>
+                          <span className="text-[#5AA3E6] font-black tracking-wide">{profile?.registration_id?.includes("EZY/") ? profile.registration_id : `EZY/2026/INT/${10000 + (parseInt(profile?.registration_id?.split('-').pop() || "0", 16) % 1000) + 1}`}</span>
                         </p>
                         <p className="text-slate-800 flex items-center">
                           <span className="font-bold w-24">Date of Issue</span> 
