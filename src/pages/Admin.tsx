@@ -781,6 +781,16 @@ const Admin = () => {
       
       await supabase.from("user_roles").insert({ user_id: userId, role: "student" });
 
+      // 5.5 Create Payment Entry (Transaction)
+      const { error: paymentError } = await supabase.from("payment_success").insert({
+        user_id: userId,
+        payment_id: `ADMIN_TRANS_${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+        amount_paise: lead.amount || 9900,
+        email: lead.user_email,
+        full_name: metadata.fullName,
+      });
+      if (paymentError) console.error("Payment log error:", paymentError);
+
       // 6. Cleanup
       await supabase.from("payment_cancelled").delete().eq("id", lead.id);
       setCancelledPayments(prev => prev.filter(p => p.id !== lead.id));
