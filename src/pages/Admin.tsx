@@ -106,6 +106,7 @@ const Admin = () => {
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal, setBulkTotal] = useState(0);
   const [csvEmails, setCsvEmails] = useState<string[]>([]);
+  const [commRecipientType, setCommRecipientType] = useState<"enrolled" | "unenrolled">("enrolled");
 
   const logAdminAction = async (action_type: string, entity_type: string, description: string, metadata: any = {}) => {
     try {
@@ -1575,8 +1576,11 @@ const Admin = () => {
                         className="px-8 shadow-glow"
                         disabled={isSendingBulk || (!bulkEmailSubject || !bulkEmailBody) || (selectedStudents.length === 0 && csvEmails.length === 0)}
                         onClick={async () => {
+                          const activeList = commRecipientType === 'enrolled' ? students : cancelledPayments;
+                          const emailField = commRecipientType === 'enrolled' ? 'email' : 'user_email';
+                          
                           const targets = [
-                            ...students.filter(s => selectedStudents.includes(s.id)).map(s => s.email),
+                            ...activeList.filter((s: any) => selectedStudents.includes(s.id)).map((s: any) => s[emailField]),
                             ...csvEmails
                           ];
                           const uniqueTargets = Array.from(new Set(targets));
@@ -1625,6 +1629,24 @@ const Admin = () => {
                       Target Selection
                     </h3>
                     <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Audience Type</Label>
+                        <Select value={commRecipientType} onValueChange={(v: any) => {
+                          setCommRecipientType(v);
+                          setSelectedStudents([]); // Reset selection when switching audience
+                        }}>
+                          <SelectTrigger className="h-10 bg-slate-50 border-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="enrolled">Enrolled Students ({students.length})</SelectItem>
+                            <SelectItem value="unenrolled">Unenrolled Leads ({cancelledPayments.length})</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Separator />
+
                       <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200">
                         <p className="text-xs text-muted-foreground mb-3 text-center">Upload CSV with 'email' column</p>
                         <Input 
@@ -1658,15 +1680,18 @@ const Admin = () => {
                       <Separator />
 
                       <div>
-                        <p className="text-xs font-bold text-muted-foreground uppercase mb-3">Filter & Select Students</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase mb-3">Filter & Select {commRecipientType === 'enrolled' ? 'Students' : 'Leads'}</p>
                         <div className="space-y-2">
                           <Button 
                             variant="outline" 
                             size="sm" 
                             className="w-full justify-start gap-2"
-                            onClick={() => setSelectedStudents(students.map(s => s.id))}
+                            onClick={() => {
+                              const list = commRecipientType === 'enrolled' ? students : cancelledPayments;
+                              setSelectedStudents(list.map((s: any) => s.id));
+                            }}
                           >
-                            <CheckCircle2 className="size-4" /> Select All Fetched ({students.length})
+                            <CheckCircle2 className="size-4" /> Select All {commRecipientType === 'enrolled' ? 'Enrolled' : 'Leads'}
                           </Button>
                           <Button 
                             variant="ghost" 

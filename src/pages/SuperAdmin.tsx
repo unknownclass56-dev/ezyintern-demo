@@ -65,6 +65,7 @@ const SuperAdmin = () => {
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal, setBulkTotal] = useState(0);
   const [csvEmails, setCsvEmails] = useState<string[]>([]);
+  const [commRecipientType, setCommRecipientType] = useState<"enrolled" | "unenrolled">("enrolled");
 
   // Selection & Filters
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -2042,8 +2043,11 @@ const SuperAdmin = () => {
                         className="h-14 px-10 shadow-glow rounded-2xl font-black"
                         disabled={isSendingBulk || (!bulkEmailSubject || !bulkEmailBody) || (selectedStudents.length === 0 && csvEmails.length === 0)}
                         onClick={async () => {
+                          const activeList = commRecipientType === 'enrolled' ? students : cancelledPayments;
+                          const emailField = commRecipientType === 'enrolled' ? 'email' : 'user_email';
+                          
                           const targets = [
-                            ...students.filter(s => selectedStudents.includes(s.id)).map(s => s.email),
+                            ...activeList.filter((s: any) => selectedStudents.includes(s.id)).map((s: any) => s[emailField]),
                             ...csvEmails
                           ];
                           const uniqueTargets = Array.from(new Set(targets));
@@ -2092,6 +2096,24 @@ const SuperAdmin = () => {
                       Recipient Selection
                     </h3>
                     <div className="space-y-6">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black text-slate-400">Audience Segment</Label>
+                        <Select value={commRecipientType} onValueChange={(v: any) => {
+                          setCommRecipientType(v);
+                          setSelectedStudents([]); 
+                        }}>
+                          <SelectTrigger className="h-12 bg-white/10 border-none text-white rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-white/10 text-white">
+                            <SelectItem value="enrolled">Enrolled Students ({students.length})</SelectItem>
+                            <SelectItem value="unenrolled">Unenrolled Leads ({cancelledPayments.length})</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Separator className="bg-white/10" />
+
                       <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
                         <p className="text-[10px] font-black uppercase text-slate-400 mb-3 text-center tracking-widest">CSV Import (.csv)</p>
                         <Input 
@@ -2123,14 +2145,17 @@ const SuperAdmin = () => {
                       </div>
 
                       <div className="space-y-3">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Global Selection</p>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Target Selection</p>
                         <Button 
                           variant="outline" 
                           size="sm" 
                           className="w-full justify-start gap-2 h-11 bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-xl"
-                          onClick={() => setSelectedStudents(students.map(s => s.id))}
+                          onClick={() => {
+                            const list = commRecipientType === 'enrolled' ? students : cancelledPayments;
+                            setSelectedStudents(list.map((s: any) => s.id));
+                          }}
                         >
-                          <CheckCircle2 className="size-4 text-emerald-400" /> Select All Interns ({students.length})
+                          <CheckCircle2 className="size-4 text-emerald-400" /> Select All {commRecipientType === 'enrolled' ? 'Interns' : 'Leads'}
                         </Button>
                         <Button 
                           variant="ghost" 
