@@ -646,6 +646,36 @@ const Admin = () => {
     return true;
   };
 
+  const handleTransferLead = async (lead: any) => {
+    if (!confirm(`Are you sure you want to transfer ${lead.metadata?.fullName || lead.user_email} to registered students? This will create a student account.`)) return;
+    
+    setProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-tasks', {
+        body: { action: 'transfer_lead', leadId: lead.id }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success("Lead successfully transferred to registered students!");
+      
+      await logAdminAction(
+        'TRANSFER', 
+        'lead', 
+        `Transferred lead ${lead.user_email} to registered students (Admin)`,
+        { lead_id: lead.id, student_id: data.userId }
+      );
+      
+      loadAll();
+    } catch (err: any) {
+      console.error("Transfer error:", err);
+      toast.error(err.message || "Failed to transfer lead. Make sure the lead has a password recorded.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   // Payment Filtering Logic
   const filteredPayments = payments.filter(pay => {
     // Date filter
@@ -1290,6 +1320,16 @@ const Admin = () => {
                               <a href={`mailto:${cp.user_email}`} className="inline-flex items-center justify-center size-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors">
                                 <Mail className="size-4" />
                               </a>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="size-8 p-0 rounded-full hover:bg-emerald-600 hover:text-white transition-all"
+                                onClick={() => handleTransferLead(cp)}
+                                title="Transfer to Registered Students"
+                                disabled={processing}
+                              >
+                                <UserPlus className="size-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>

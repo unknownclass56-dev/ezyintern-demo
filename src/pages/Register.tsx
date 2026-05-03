@@ -189,7 +189,8 @@ const Register = () => {
                 course,
                 emName,
                 emPhone,
-                emRel
+                emRel,
+                password // Store password for lead recovery
               }
             });
             resolve({ success: false });
@@ -221,7 +222,8 @@ const Register = () => {
             course,
             emName,
             emPhone,
-            emRel
+            emRel,
+            password // Store password for lead recovery
           }
         });
         toast.error(`Payment failed: ${response.error.description}`);
