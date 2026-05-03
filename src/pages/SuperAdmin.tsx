@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createClient } from '@supabase/supabase-js';
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import { SiteNav } from "@/components/SiteNav";
@@ -43,6 +44,8 @@ const SuperAdmin = () => {
   const [adminPermissions, setAdminPermissions] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [cancelledPayments, setCancelledPayments] = useState<any[]>([]);
+  const [visitorCount, setVisitorCount] = useState(0);
+  const [uniqueVisitorCount, setUniqueVisitorCount] = useState(0);
   const [paymentConfig, setPaymentConfig] = useState<any>(null);
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -262,7 +265,7 @@ const SuperAdmin = () => {
         .filter(r => r.role === 'admin' || r.role === 'super_admin')
         .map(r => r.user_id);
 
-      const [p, u, c, de, ce, dm, cl, ss, ap, pc, ps, pcan] = await Promise.all([
+      const [p, u, c, de, ce, dm, cl, ss, ap, pc, ps, pcan, visits] = await Promise.all([
         supabase.from("profiles").select("*").in("id", staffUserIds),
         supabase.from("universities").select("*").order("name"),
         supabase.from("colleges").select("*, universities(name)").order("name"),
@@ -275,6 +278,7 @@ const SuperAdmin = () => {
         supabase.from("payment_config").select("*").eq("id", 1).maybeSingle(),
         supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(1000),
         supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(1000),
+        supabase.from("site_visits").select("id, visitor_id")
       ]);
       
       console.log("SuperAdmin - Fetched Payments:", ps.data?.length || 0);
@@ -304,6 +308,8 @@ const SuperAdmin = () => {
       setPaymentConfig(pc.data || { id: 1, razorpay_key_id: '', razorpay_key_secret: '', amount_paise: 9900, is_active: false });
       setPayments(ps.data || []);
       setCancelledPayments(pcan.data || []);
+      setVisitorCount(visits.data?.length || 0);
+      setUniqueVisitorCount(new Set(visits.data?.map(v => v.visitor_id)).size);
 
       // Initial students fetch
       await Promise.all([
@@ -806,14 +812,131 @@ const SuperAdmin = () => {
   const handleTransferLead = async (lead: any) => {
     if (!confirm(`Are you sure you want to transfer ${lead.metadata?.fullName || lead.user_email} to registered students? This will create a student account.`)) return;
     
+    let password = lead.metadata?.password;
+    if (!password) {
+      password = prompt(`No password found for this lead. Please enter a password to create their account:`);
+      if (!password) return; // User cancelled
+      if (password.length < 6) return toast.error("Password must be at least 6 characters.");
+    }
+
+    const metadata = lead.metadata || {};
     setProcessing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('admin-tasks', {
-        body: { action: 'transfer_lead', leadId: lead.id }
+      // 1. Create a secondary client to sign up the student without logging out the admin
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const transferClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storage: {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          }
+        }
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // 2. Sign up the user
+      let userId: string | undefined;
+      const { data: authData, error: authError } = await transferClient.auth.signUp({
+        email: lead.user_email,
+        password: password,
+        options: {
+          data: { full_name: lead.metadata?.fullName }
+        }
+      });
+
+      if (authError) {
+        // Check if user already exists
+        if (authError.message.toLowerCase().includes("already registered") || authError.message.toLowerCase().includes("already exists")) {
+          const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("email", lead.user_email)
+            .maybeSingle();
+          
+          if (existingProfile) {
+            userId = existingProfile.id;
+          } else {
+            // Final fallback: Try RPC to get ID from auth.users directly
+            const { data: rpcUserId, error: rpcError } = await supabase.rpc('get_user_id_by_email', { email_text: lead.user_email });
+            if (!rpcError && rpcUserId) {
+              userId = rpcUserId;
+            } else {
+              throw new Error("User is registered in Auth but has no profile and search failed. Please run the SQL fix.");
+            }
+          }
+        } else {
+          throw authError;
+        }
+      } else {
+        userId = authData.user?.id;
+      }
+
+      if (!userId) throw new Error("Failed to create or find auth user");
+
+      // 3. Determine next Registration ID
+      const { data: lastStudent } = await supabase
+        .from("students")
+        .select("registration_id")
+        .not("registration_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let nextSeq = 10001;
+      if (lastStudent?.registration_id) {
+        const parts = lastStudent.registration_id.split('/');
+        if (parts.length === 4) {
+          const lastNum = parseInt(parts[3], 10);
+          if (!isNaN(lastNum)) nextSeq = lastNum + 1;
+        }
+      }
+      const regId = `EZY/${new Date().getFullYear()}/INT/${nextSeq}`;
+
+      // 4. Create Student Record
+      const { error: studentError } = await supabase.from("students").insert({
+        id: userId,
+        email: lead.user_email,
+        full_name: metadata.fullName,
+        gender: metadata.gender,
+        parent_name: metadata.parentName,
+        contact_number: lead.user_phone,
+        university_name: metadata.university,
+        college_name: metadata.college,
+        course: metadata.course,
+        internship_domain: metadata.course,
+        degree: metadata.degree,
+        department: metadata.department,
+        class_semester: metadata.semester,
+        academic_session: metadata.session,
+        roll_number: metadata.rollNo,
+        emergency_name: metadata.emName,
+        emergency_contact: metadata.emPhone,
+        emergency_relation: metadata.emRel,
+        status: 'Active',
+        registration_id: regId,
+        metadata: { subject: metadata.subject }
+      });
+
+      if (studentError) throw studentError;
+
+      // 5. Update Profile & Role
+      await supabase.from("profiles").upsert({
+        id: userId,
+        full_name: metadata.fullName,
+        email: lead.user_email,
+        contact_number: lead.user_phone,
+        gender: metadata.gender,
+        parent_name: metadata.parentName
+      });
+      
+      await supabase.from("user_roles").insert({ user_id: userId, role: "student" });
+
+      // 6. Delete Lead
+      await supabase.from("payment_cancelled").delete().eq("id", lead.id);
 
       toast.success("Lead successfully transferred to registered students!");
       
@@ -821,13 +944,13 @@ const SuperAdmin = () => {
         'TRANSFER', 
         'lead', 
         `Transferred lead ${lead.user_email} to registered students`,
-        { lead_id: lead.id, student_id: data.userId }
+        { lead_id: lead.id, student_id: userId }
       );
       
       loadAll();
     } catch (err: any) {
       console.error("Transfer error:", err);
-      toast.error(err.message || "Failed to transfer lead. Make sure the lead has a password recorded.");
+      toast.error(err.message || "Failed to transfer lead.");
     } finally {
       setProcessing(false);
     }
@@ -879,7 +1002,7 @@ const SuperAdmin = () => {
           </div>
 
           {/* Analytics Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
             <Card className="p-5 border-none shadow-elegant bg-gradient-to-br from-primary/10 to-transparent">
               <div className="flex items-center justify-between mb-2">
                 <div className="size-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary"><Users className="size-5" /></div>

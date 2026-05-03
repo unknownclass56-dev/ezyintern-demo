@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createClient } from '@supabase/supabase-js';
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import { SiteNav } from "@/components/SiteNav";
@@ -38,6 +39,8 @@ const Admin = () => {
   const [classesList, setClassesList] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [cancelledPayments, setCancelledPayments] = useState<any[]>([]);
+  const [visitorCount, setVisitorCount] = useState(0);
+  const [uniqueVisitorCount, setUniqueVisitorCount] = useState(0);
   const [systemSettings, setSystemSettings] = useState<any[]>([]);
   const [myPermissions, setMyPermissions] = useState<any>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -268,7 +271,7 @@ const Admin = () => {
         ? supabase.from("profiles").select("*").in("id", staffUserIds)
         : supabase.from("profiles").select("*").limit(0);
 
-      const [p, u, c, ce, dm, cl, ss, ap, ps, pc, notifs, asgnResult] = await Promise.all([
+      const [p, u, c, ce, dm, cl, ss, ap, ps, pc, notifs, asgnResult, v] = await Promise.all([
         profilesQuery,
         supabase.from("universities").select("*").order("name"),
         supabase.from("colleges").select("*, universities(name)").order("name"),
@@ -280,7 +283,8 @@ const Admin = () => {
         supabase.from("payment_success").select("*").order("created_at", { ascending: false }).limit(1000),
         supabase.from("payment_cancelled").select("*").order("created_at", { ascending: false }).limit(1000),
         supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(50),
-        supabase.from("assignments").select("*, assignment_submissions(id)").order("created_at", { ascending: false })
+        supabase.from("assignments").select("*, assignment_submissions(id)").order("created_at", { ascending: false }),
+        supabase.from("site_visits").select("id, visitor_id")
       ]);
       
       console.log("Fetched Payments:", ps.data?.length || 0);
@@ -319,6 +323,10 @@ const Admin = () => {
       setCancelledPayments(pc.data || []);
       setNotifications(notifs.data || []);
       setAssignments(asgnResult.data || []);
+      
+      setVisitorCount(v.data?.length || 0);
+      const uniqueVisitors = new Set((v.data || []).map(visit => visit.visitor_id));
+      setUniqueVisitorCount(uniqueVisitors.size);
 
       // Initial students fetch
       await fetchStudents();
@@ -648,15 +656,132 @@ const Admin = () => {
 
   const handleTransferLead = async (lead: any) => {
     if (!confirm(`Are you sure you want to transfer ${lead.metadata?.fullName || lead.user_email} to registered students? This will create a student account.`)) return;
-    
+
+    let password = lead.metadata?.password;
+    if (!password) {
+      password = prompt(`No password found for this lead. Please enter a password to create their account:`);
+      if (!password) return; // User cancelled
+      if (password.length < 6) return toast.error("Password must be at least 6 characters.");
+    }
+
+    const metadata = lead.metadata || {};
     setProcessing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('admin-tasks', {
-        body: { action: 'transfer_lead', leadId: lead.id }
+      // 1. Create a secondary client
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const transferClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storage: {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          }
+        }
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // 2. Sign up
+      let userId: string | undefined;
+      const { data: authData, error: authError } = await transferClient.auth.signUp({
+        email: lead.user_email,
+        password: password,
+        options: {
+          data: { full_name: lead.metadata?.fullName }
+        }
+      });
+
+      if (authError) {
+        // Check if user already exists
+        if (authError.message.toLowerCase().includes("already registered") || authError.message.toLowerCase().includes("already exists")) {
+          const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("email", lead.user_email)
+            .maybeSingle();
+          
+          if (existingProfile) {
+            userId = existingProfile.id;
+          } else {
+            // Final fallback: Try RPC
+            const { data: rpcUserId, error: rpcError } = await supabase.rpc('get_user_id_by_email', { email_text: lead.user_email });
+            if (!rpcError && rpcUserId) {
+              userId = rpcUserId;
+            } else {
+              throw new Error("User is registered in Auth but has no profile and search failed. Please run the SQL fix.");
+            }
+          }
+        } else {
+          throw authError;
+        }
+      } else {
+        userId = authData.user?.id;
+      }
+
+      if (!userId) throw new Error("Failed to create or find auth user");
+
+      // 3. Registration ID
+      const { data: lastStudent } = await supabase
+        .from("students")
+        .select("registration_id")
+        .not("registration_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let nextSeq = 10001;
+      if (lastStudent?.registration_id) {
+        const parts = lastStudent.registration_id.split('/');
+        if (parts.length === 4) {
+          const lastNum = parseInt(parts[3], 10);
+          if (!isNaN(lastNum)) nextSeq = lastNum + 1;
+        }
+      }
+      const regId = `EZY/${new Date().getFullYear()}/INT/${nextSeq}`;
+
+      // 4. Student Data
+      const { error: studentError } = await supabase.from("students").insert({
+        id: userId,
+        email: lead.user_email,
+        full_name: metadata.fullName,
+        gender: metadata.gender,
+        parent_name: metadata.parentName,
+        contact_number: lead.user_phone,
+        university_name: metadata.university,
+        college_name: metadata.college,
+        course: metadata.course,
+        internship_domain: metadata.course,
+        degree: metadata.degree,
+        department: metadata.department,
+        class_semester: metadata.semester,
+        academic_session: metadata.session,
+        roll_number: metadata.rollNo,
+        emergency_name: metadata.emName,
+        emergency_contact: metadata.emPhone,
+        emergency_relation: metadata.emRel,
+        status: 'Active',
+        registration_id: regId,
+        metadata: { subject: metadata.subject }
+      });
+
+      if (studentError) throw studentError;
+
+      // 5. Profile & Role
+      await supabase.from("profiles").upsert({
+        id: userId,
+        full_name: metadata.fullName,
+        email: lead.user_email,
+        contact_number: lead.user_phone,
+        gender: metadata.gender,
+        parent_name: metadata.parentName
+      });
+      
+      await supabase.from("user_roles").insert({ user_id: userId, role: "student" });
+
+      // 6. Cleanup
+      await supabase.from("payment_cancelled").delete().eq("id", lead.id);
 
       toast.success("Lead successfully transferred to registered students!");
       
@@ -664,13 +789,13 @@ const Admin = () => {
         'TRANSFER', 
         'lead', 
         `Transferred lead ${lead.user_email} to registered students (Admin)`,
-        { lead_id: lead.id, student_id: data.userId }
+        { lead_id: lead.id, student_id: userId }
       );
       
       loadAll();
     } catch (err: any) {
       console.error("Transfer error:", err);
-      toast.error(err.message || "Failed to transfer lead. Make sure the lead has a password recorded.");
+      toast.error(err.message || "Failed to transfer lead.");
     } finally {
       setProcessing(false);
     }
@@ -733,9 +858,22 @@ const Admin = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div><h1 className="text-3xl font-bold">Admin Panel</h1><p className="text-muted-foreground">Unified Management & Bulk Certification</p></div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" className="gap-2 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100" onClick={exportToCSV}><Download className="size-4" /> Export CSV</Button>
-              <Button variant="outline" className="gap-2" onClick={() => navigate("/register")}><UserPlus className="size-4" /> Add Student</Button>
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex gap-4 px-4 py-2 bg-white rounded-xl shadow-sm border border-slate-100">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Page Views</span>
+                  <span className="text-lg font-black text-primary">{visitorCount.toLocaleString()}</span>
+                </div>
+                <div className="w-px h-8 bg-slate-100 self-center"></div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Visitors</span>
+                  <span className="text-lg font-black text-indigo-600">{uniqueVisitorCount.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className="gap-2 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100" onClick={exportToCSV}><Download className="size-4" /> Export CSV</Button>
+                <Button variant="outline" className="gap-2" onClick={() => navigate("/register")}><UserPlus className="size-4" /> Add Student</Button>
+              </div>
             </div>
           </div>
 

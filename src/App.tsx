@@ -15,6 +15,7 @@ import SuperAdmin from "./pages/SuperAdmin.tsx";
 import Benefits from "./pages/Benefits.tsx";
 import AssignmentTest from "./pages/AssignmentTest.tsx";
 import AssignmentResult from "./pages/AssignmentResult.tsx";
+import { VisitorTracker } from "./components/VisitorTracker";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <VisitorTracker />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
