@@ -46,6 +46,7 @@ const SuperAdmin = () => {
   const [cancelledPayments, setCancelledPayments] = useState<any[]>([]);
   const [visitorCount, setVisitorCount] = useState(0);
   const [uniqueVisitorCount, setUniqueVisitorCount] = useState(0);
+  const [leadsSearchTerm, setLeadsSearchTerm] = useState("");
   const [paymentConfig, setPaymentConfig] = useState<any>(null);
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -937,6 +938,7 @@ const SuperAdmin = () => {
 
       // 6. Delete Lead
       await supabase.from("payment_cancelled").delete().eq("id", lead.id);
+      setCancelledPayments(prev => prev.filter(p => p.id !== lead.id));
 
       toast.success("Lead successfully transferred to registered students!");
       
@@ -1727,9 +1729,20 @@ const SuperAdmin = () => {
                       <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2"><UserPlus className="size-6 text-indigo-600" /> Lead Generation</h3>
                       <p className="text-xs text-muted-foreground font-medium">Tracking students who initiated registration but failed payment</p>
                     </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-black text-indigo-600">{cancelledPayments.length}</div>
-                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Potential Leads</div>
+                    <div className="flex flex-col md:flex-row items-center gap-4">
+                      <div className="relative w-full md:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="Search leads..." 
+                          className="pl-9 h-10 bg-white shadow-soft" 
+                          value={leadsSearchTerm}
+                          onChange={e => setLeadsSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      <div className="text-right whitespace-nowrap">
+                        <div className="text-2xl font-black text-indigo-600 leading-none">{cancelledPayments.length}</div>
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Leads</div>
+                      </div>
                     </div>
                   </div>
 
@@ -1737,7 +1750,20 @@ const SuperAdmin = () => {
                     <Table>
                       <TableHeader className="bg-slate-50/50"><TableRow><TableHead>Date</TableHead><TableHead>Lead Details</TableHead><TableHead>Potential Amount</TableHead><TableHead>Reason</TableHead><TableHead className="text-right">Follow-up</TableHead></TableRow></TableHeader>
                       <TableBody>
-                        {cancelledPayments.map(cp => (
+                        {cancelledPayments
+                          .filter(cp => {
+                            // Preemptive hide: If student with this email already exists, hide from leads
+                            if (students.some(s => s.email === cp.user_email)) return false;
+
+                            if (!leadsSearchTerm) return true;
+                            const search = leadsSearchTerm.toLowerCase();
+                            return (
+                              cp.user_email?.toLowerCase().includes(search) || 
+                              cp.metadata?.fullName?.toLowerCase().includes(search) ||
+                              cp.user_phone?.includes(search)
+                            );
+                          })
+                          .map(cp => (
                           <TableRow key={cp.id} className="hover:bg-indigo-50/20 transition-colors">
                             <TableCell className="text-[10px] font-bold text-slate-500">{new Date(cp.created_at).toLocaleString()}</TableCell>
                              <TableCell>

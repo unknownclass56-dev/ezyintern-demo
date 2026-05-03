@@ -65,6 +65,7 @@ const Admin = () => {
   const [payStartDate, setPayStartDate] = useState("");
   const [payEndDate, setPayEndDate] = useState("");
   const [payCollegeFilter, setPayCollegeFilter] = useState("all");
+  const [leadsSearchTerm, setLeadsSearchTerm] = useState("");
 
   // Pagination
   const [studentPage, setStudentPage] = useState(0);
@@ -782,6 +783,7 @@ const Admin = () => {
 
       // 6. Cleanup
       await supabase.from("payment_cancelled").delete().eq("id", lead.id);
+      setCancelledPayments(prev => prev.filter(p => p.id !== lead.id));
 
       toast.success("Lead successfully transferred to registered students!");
       
@@ -1417,18 +1419,43 @@ const Admin = () => {
 
             <TabsContent value="leads">
               <Card className="p-6 border-none shadow-elegant">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                   <div>
                     <h3 className="text-xl font-bold flex items-center gap-2 text-indigo-600"><UserPlus className="size-5" /> Conversion Leads</h3>
                     <p className="text-xs text-muted-foreground font-medium">Students who reached checkout but didn't complete payment</p>
                   </div>
-                  <Badge className="bg-indigo-100 text-indigo-700 border-none px-4 py-1.5 font-bold">Leads: {cancelledPayments.length}</Badge>
+                  <div className="flex flex-col md:flex-row md:items-center gap-4 w-full md:w-auto">
+                    <div className="relative w-full md:w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Search email or name..." 
+                        className="pl-9 h-9" 
+                        value={leadsSearchTerm}
+                        onChange={e => setLeadsSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <Badge className="bg-indigo-100 text-indigo-700 border-none px-4 py-1.5 font-bold whitespace-nowrap">Count: {cancelledPayments.length}</Badge>
+                  </div>
                 </div>
                 <ScrollArea className="h-[500px]">
                   <Table>
                     <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Student Details</TableHead><TableHead>Amount</TableHead><TableHead>Reason</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {cancelledPayments.map(cp => (
+                      {cancelledPayments
+                        .filter(cp => {
+                          // Preemptive filter: If student with this email already exists, hide it
+                          const isAlreadyStudent = students.some(s => s.email === cp.user_email);
+                          if (isAlreadyStudent) return false;
+
+                          if (!leadsSearchTerm) return true;
+                          const search = leadsSearchTerm.toLowerCase();
+                          return (
+                            cp.user_email?.toLowerCase().includes(search) || 
+                            cp.metadata?.fullName?.toLowerCase().includes(search) ||
+                            cp.user_phone?.includes(search)
+                          );
+                        })
+                        .map(cp => (
                         <TableRow key={cp.id}>
                           <TableCell className="text-[10px] font-medium">{new Date(cp.created_at).toLocaleString()}</TableCell>
                           <TableCell>
