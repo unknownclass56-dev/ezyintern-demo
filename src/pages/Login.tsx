@@ -90,17 +90,19 @@ const Login = () => {
       
       if (dbError) throw new Error("Failed to initialize reset. Please try again.");
 
-      // 3. Send OTP via Supabase Edge Function
-      const { data, error: functionError } = await supabase.functions.invoke('resend-email', {
-        body: {
-          type: 'password_reset_otp',
-          data: { otp: generatedOtp },
+      // 3. Send OTP via Vercel API
+      const response = await fetch('/api/send-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_otp',
+          otp: generatedOtp,
           to: resetEmail
-        }
+        })
       });
       
-      if (functionError) throw functionError;
-      if (!data?.success) throw new Error(data?.error || "Failed to send email");
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || "Failed to send email");
 
       toast.success("OTP sent successfully to your email!");
       setResetStep("otp");
