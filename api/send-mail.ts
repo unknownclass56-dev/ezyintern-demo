@@ -37,15 +37,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const transporter = nodemailer.createTransport({
         host: 'smtp.hostinger.com',
-        port: 587,
-        secure: false,
+        port: 465,
+        secure: true,
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
-        tls: {
-          rejectUnauthorized: false
-        }
       });
 
       const mailOptions = {
@@ -99,21 +96,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const transporter = nodemailer.createTransport({
       host: 'smtp.hostinger.com',
-      port: 587,
-      secure: false,
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
-      tls: {
-        rejectUnauthorized: false
-      }
     });
 
     // 1. Send the email containing user message to the admin
     const adminMailOptions = {
       from: `"EzyIntern Contact Form" <${process.env.SMTP_USER}>`,
-      to: 'noreplay@ezyintern.in',
+      to: 'noreply@ezyintern.in',
       subject: `New Contact Request from ${name}`,
       html: `
         <h3>New Contact Message</h3>

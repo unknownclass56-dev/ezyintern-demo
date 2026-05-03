@@ -143,6 +143,41 @@ function certificateTemplate(data: any): string {
   `;
 }
 
+function otpTemplate(otp: string): string {
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+      <div style="background-color: #0084FF; padding: 24px; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Password Reset</h1>
+      </div>
+      <div style="padding: 32px; text-align: center; color: #1e293b;">
+        <p style="font-size: 16px; margin-bottom: 24px;">Hello,</p>
+        <p style="font-size: 16px; line-height: 1.5;">You requested to reset your password. Use the 6-digit code below to proceed:</p>
+        <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 16px; margin: 32px 0; display: inline-block;">
+          <span style="font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #0084FF; font-family: monospace;">${otp}</span>
+        </div>
+        <p style="font-size: 14px; color: #64748b;">This code will expire in 15 minutes. If you did not request this, please ignore this email.</p>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
+        © 2026 EzyIntern. All rights reserved.
+      </div>
+    </div>
+  `;
+}
+
+function contactTemplate(name: string, email: string, message: string): string {
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px;">
+      <h2 style="color: #1e293b; border-bottom: 2px solid #0084FF; padding-bottom: 12px;">New Contact Message</h2>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin-top: 20px;">
+        <p><strong>Message:</strong></p>
+        <p style="white-space: pre-wrap;">${message}</p>
+      </div>
+    </div>
+  `;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -151,14 +186,15 @@ serve(async (req) => {
   try {
     const { type, to, data } = await req.json();
 
-    if (!to || !type) {
-      return new Response(JSON.stringify({ error: "Missing 'to' or 'type'" }), {
+    if (!type) {
+      return new Response(JSON.stringify({ error: "Missing 'type'" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
     let subject = "";
     let htmlContent = "";
+    let recipient = to;
 
     if (type === "registration_confirmation") {
       subject = `✅ Registration Confirmed — EzyIntern (ID: ${data.registrationId})`;
@@ -166,8 +202,21 @@ serve(async (req) => {
     } else if (type === "certificate_generated") {
       subject = `🏆 Your EzyIntern Certificate is Ready — ${data.certificateId}`;
       htmlContent = certificateTemplate(data);
+    } else if (type === "password_reset_otp") {
+      subject = "Your Password Reset OTP";
+      htmlContent = otpTemplate(data.otp);
+    } else if (type === "contact_form") {
+      subject = `New Contact Request from ${data.name}`;
+      htmlContent = contactTemplate(data.name, data.email, data.message);
+      recipient = "noreply@ezyintern.in"; // Contact form goes to admin
     } else {
       return new Response(JSON.stringify({ error: "Unknown email type" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    if (!recipient && type !== "contact_form") {
+      return new Response(JSON.stringify({ error: "Missing 'to' recipient" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -182,14 +231,24 @@ serve(async (req) => {
 
     await client.send({
       from: `EzyIntern <${SMTP_USER}>`,
-      to: to,
+      to: recipient,
       subject: subject,
       html: htmlContent,
     });
 
+    // For contact form, also send confirmation to user
+    if (type === "contact_form") {
+      await client.send({
+        from: `EzyIntern <${SMTP_USER}>`,
+        to: data.email,
+        subject: "We received your message!",
+        html: `<h3>Hi ${data.name},</h3><p>We've received your message and will get back to you soon.</p>`,
+      });
+    }
+
     await client.close();
 
-    console.log(`Email sent [${type}] to: ${to}`);
+    console.log(`Email sent [${type}] to: ${recipient}`);
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });

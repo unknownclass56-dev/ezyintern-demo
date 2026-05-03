@@ -8,19 +8,38 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { MapPin, Phone, Mail, Send, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Contact = () => {
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const name = formData.get("name") as string;
+    const email = formData.get("email") as string;
+    const message = formData.get("message") as string;
+
     setLoading(true);
-    // Simulate form submission
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.functions.invoke('resend-email', {
+        body: {
+          type: 'contact_form',
+          data: { name, email, message }
+        }
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Failed to send message");
+
       toast.success("Message sent successfully! Our team will contact you soon.");
-      setLoading(false);
       (e.target as HTMLFormElement).reset();
-    }, 1500);
+    } catch (err: any) {
+      console.error("Contact form error:", err);
+      toast.error(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -89,11 +108,11 @@ const Contact = () => {
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label htmlFor="name" className="text-xs font-black uppercase text-slate-500">Full Name</Label>
-                        <Input id="name" placeholder="John Doe" required className="h-12 bg-slate-50 border-none focus-visible:ring-primary" />
+                        <Input id="name" name="name" placeholder="John Doe" required className="h-12 bg-slate-50 border-none focus-visible:ring-primary" />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="email" className="text-xs font-black uppercase text-slate-500">Email Address</Label>
-                        <Input id="email" type="email" placeholder="john@example.com" required className="h-12 bg-slate-50 border-none focus-visible:ring-primary" />
+                        <Input id="email" name="email" type="email" placeholder="john@example.com" required className="h-12 bg-slate-50 border-none focus-visible:ring-primary" />
                       </div>
                     </div>
 
@@ -126,7 +145,7 @@ const Contact = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="message" className="text-xs font-black uppercase text-slate-500">How can we help?</Label>
-                      <Textarea id="message" placeholder="Type your message here..." required className="min-h-[120px] bg-slate-50 border-none focus-visible:ring-primary resize-none" />
+                      <Textarea id="message" name="message" placeholder="Type your message here..." required className="min-h-[120px] bg-slate-50 border-none focus-visible:ring-primary resize-none" />
                     </div>
 
                     <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-black text-lg shadow-glow rounded-xl gap-2" disabled={loading}>
