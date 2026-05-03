@@ -20,165 +20,100 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const { name, email, message, otp, action, to, subject } = req.body;
+  const { name, email, message, otp, action, to, subject, data } = req.body;
 
-  if (action === 'test_mail') {
-    if (!to || !subject || !message) {
-      return res.status(400).json({ success: false, message: 'Missing to, subject, or message' });
-    }
+  const SMTP_USER = process.env.SMTP_USER || "noreply@ezyintern.in";
+  const SMTP_PASS = process.env.SMTP_PASS || "Ezyintern@Bhopal&2026";
 
-    try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.hostinger.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-
-      const mailOptions = {
-        from: `"EzyIntern Test" <${process.env.SMTP_USER}>`,
-        to: to,
-        subject: `[TEST] ${subject}`,
-        html: `
-          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-            <h2 style="color: #0084FF;">EzyIntern Mail Test</h2>
-            <p>This is a manual test email sent from the Super Admin Panel.</p>
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-            <p><strong>Message:</strong></p>
-            <p style="background: #f9f9f9; padding: 15px; border-radius: 5px;">${message}</p>
-            <p style="font-size: 12px; color: #999; margin-top: 20px;">Sent at: ${new Date().toLocaleString()}</p>
-          </div>
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
-      return res.status(200).json({ success: true, message: 'Test email sent successfully!' });
-    } catch (error: any) {
-      console.error('Error sending test email:', error);
-      return res.status(500).json({ success: false, message: 'Failed to send test email', error: error.message });
-    }
+  if (!SMTP_USER || !SMTP_PASS) {
+    return res.status(500).json({ success: false, message: 'SMTP Credentials missing' });
   }
 
-  if (action === 'send_otp') {
-    if (!email || !otp) {
-      return res.status(400).json({ success: false, message: 'Missing email or OTP for reset' });
-    }
-
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'SMTP Credentials missing on Vercel. Please add SMTP_USER and SMTP_PASS in Vercel Settings.' 
-      });
-    }
-
-    try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.hostinger.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-
-      const mailOptions = {
-        from: `"EzyIntern Security" <${process.env.SMTP_USER}>`,
-        to: email,
-        subject: 'Your Password Reset OTP',
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-            <div style="background-color: #0084FF; padding: 24px; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 24px;">Password Reset</h1>
-            </div>
-            <div style="padding: 32px; text-align: center; color: #1e293b;">
-              <p style="font-size: 16px; margin-bottom: 24px;">Hello,</p>
-              <p style="font-size: 16px; line-height: 1.5;">You requested to reset your password. Use the 6-digit code below to proceed:</p>
-              <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 16px; margin: 32px 0; display: inline-block;">
-                <span style="font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #0084FF; font-family: monospace;">${otp}</span>
-              </div>
-              <p style="font-size: 14px; color: #64748b;">This code will expire in 15 minutes. If you did not request this, please ignore this email.</p>
-            </div>
-            <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
-              © 2026 EzyIntern. All rights reserved.
-            </div>
-          </div>
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
-      return res.status(200).json({ success: true, message: 'OTP sent successfully!' });
-    } catch (error: any) {
-      console.error('Error sending OTP:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Failed to send OTP', 
-        error: error.message,
-        stack: error.stack // Temporarily adding for debugging
-      });
-    }
-  }
-
-  if (!name || !email || !message) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
-  }
-
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    return res.status(500).json({ 
-      success: false, 
-      message: 'SMTP Credentials missing on Vercel.' 
-    });
-  }
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.hostinger.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.hostinger.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
-    // 1. Send the email containing user message to the admin
-    const adminMailOptions = {
-      from: `"EzyIntern Contact Form" <${process.env.SMTP_USER}>`,
-      to: 'noreply@ezyintern.in',
-      subject: `New Contact Request from ${name}`,
-      html: `
-        <h3>New Contact Message</h3>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Message:</strong></p>
-        <p>${message}</p>
-      `,
+    let mailOptions: any = {
+      from: `"EzyIntern" <${SMTP_USER}>`,
+      to: to || email,
     };
 
-    // 2. Send confirmation email to the user
-    const userMailOptions = {
-      from: `"EzyIntern Support" <${process.env.SMTP_USER}>`,
-      to: email,
-      subject: 'We received your message!',
-      html: `
-        <h3>Hi ${name},</h3>
-        <p>Thank you for reaching out to EzyIntern.</p>
-        <p>We have successfully received your message and our team will get back to you shortly.</p>
-        <br/>
-        <p>Best regards,<br/>The EzyIntern Team</p>
-      `,
-    };
+    if (action === 'test_mail') {
+      mailOptions.subject = `[TEST] ${subject || 'Diagnostic Test'}`;
+      mailOptions.html = `
+        <div style="font-family: sans-serif; padding: 20px; border: 2px solid #0084FF; border-radius: 10px;">
+          <h2 style="color: #0084FF;">EzyIntern Mail Test</h2>
+          <p>Manual test from Super Admin Panel via Vercel API.</p>
+          <hr/>
+          <p><strong>Message:</strong> ${message || 'No content'}</p>
+        </div>
+      `;
+    } else if (action === 'send_otp') {
+      mailOptions.subject = 'Your Password Reset OTP';
+      mailOptions.html = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+          <div style="background-color: #0084FF; padding: 24px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Password Reset</h1>
+          </div>
+          <div style="padding: 32px; text-align: center; color: #1e293b;">
+            <p style="font-size: 16px; margin-bottom: 24px;">Hello,</p>
+            <p style="font-size: 16px; line-height: 1.5;">You requested to reset your password. Use the 6-digit code below to proceed:</p>
+            <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 16px; margin: 32px 0; display: inline-block;">
+              <span style="font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #0084FF; font-family: monospace;">${otp}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (action === 'registration_confirmation') {
+      mailOptions.subject = `✅ Registration Confirmed — EzyIntern (ID: ${data.registrationId})`;
+      mailOptions.html = `
+        <div style="font-family: sans-serif; padding: 32px; border: 1px solid #eee; border-radius: 16px;">
+          <h1 style="color: #4F46E5;">Welcome to EzyIntern!</h1>
+          <p>Hello ${data.fullName}, your registration is confirmed.</p>
+          <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0;">
+            <p><strong>Registration ID:</strong> ${data.registrationId}</p>
+            <p><strong>Domain:</strong> ${data.course}</p>
+          </div>
+          <a href="https://www.ezyintern.com/login" style="display:inline-block; padding: 12px 24px; background: #4F46E5; color: white; text-decoration: none; border-radius: 8px;">Access Portal</a>
+        </div>
+      `;
+    } else if (action === 'certificate_generated') {
+      mailOptions.subject = `🏆 Your EzyIntern Certificate is Ready — ${data.certificateId}`;
+      mailOptions.html = `
+        <div style="font-family: sans-serif; padding: 32px; border: 1px solid #eee; border-radius: 16px;">
+          <h1 style="color: #059669;">Certificate Ready!</h1>
+          <p>Dear ${data.studentName}, your certificate for ${data.programme} is now available.</p>
+          <div style="background: #f0fdf4; padding: 20px; border-radius: 12px; margin: 20px 0;">
+            <p><strong>Certificate ID:</strong> ${data.certificateId}</p>
+          </div>
+          <a href="https://www.ezyintern.com/dashboard" style="display:inline-block; padding: 12px 24px; background: #059669; color: white; text-decoration: none; border-radius: 8px;">Download Certificate</a>
+        </div>
+      `;
+    } else {
+      // Default contact form
+      mailOptions.from = `"EzyIntern Contact" <${SMTP_USER}>`;
+      mailOptions.to = 'noreply@ezyintern.in';
+      mailOptions.subject = `New Contact Request from ${name || 'User'}`;
+      mailOptions.html = `<h3>Message from ${name} (${email}):</h3><p>${message}</p>`;
+      
+      // Also send confirmation to user
+      await transporter.sendMail({
+        from: `"EzyIntern Support" <${SMTP_USER}>`,
+        to: email,
+        subject: 'We received your message!',
+        html: `<p>Hi ${name}, we received your message and will get back to you soon.</p>`
+      });
+    }
 
-    // Send both emails
-    await Promise.all([
-      transporter.sendMail(adminMailOptions),
-      transporter.sendMail(userMailOptions),
-    ]);
-
-    return res.status(200).json({ success: true, message: 'Emails sent successfully!' });
+    await transporter.sendMail(mailOptions);
+    return res.status(200).json({ success: true, message: 'Email sent successfully!' });
   } catch (error: any) {
     console.error('Error sending email:', error);
     return res.status(500).json({ success: false, message: 'Failed to send email', error: error.message });

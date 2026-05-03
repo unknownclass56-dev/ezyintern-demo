@@ -1538,24 +1538,27 @@ const SuperAdmin = () => {
                     onClick={async () => {
                       setIsSendingTestMail(true);
                       try {
-                        const { data, error } = await supabase.functions.invoke("admin-tasks", {
-                          body: {
-                            action: "send_test_email",
+                        // Use the Vercel API which is now updated and live
+                        const response = await fetch('/api/send-mail', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'test_mail',
                             to: testMailTo,
                             subject: testMailSubject,
                             message: testMailBody
-                          }
+                          })
                         });
                         
-                        if (error) throw error;
+                        const result = await response.json();
                         
-                        if (data?.success) {
-                          toast.success("Test email sent successfully via Admin-Tasks! Check your inbox.");
+                        if (result.success) {
+                          toast.success("Test email sent successfully via Vercel! Check your inbox.");
                         } else {
-                          toast.error(data?.error || "Failed to send test email.");
+                          toast.error(result.message || "Failed to send test email.");
                         }
                       } catch (err: any) {
-                        toast.error(err.message || "Network error while sending test email.");
+                        toast.error("Network error or local dev limitation. Try testing on the LIVE Vercel site.");
                         console.error(err);
                       } finally {
                         setIsSendingTestMail(false);
