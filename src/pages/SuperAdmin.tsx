@@ -73,6 +73,11 @@ const SuperAdmin = () => {
   const [allStudentsComms, setAllStudentsComms] = useState<any[]>([]);
   const [allLeadsComms, setAllLeadsComms] = useState<any[]>([]);
 
+  // Password Reset States
+  const [isResetPassOpen, setIsResetPassOpen] = useState(false);
+  const [resetPassUser, setResetPassUser] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState("");
+
   // Selection & Filters
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -213,6 +218,57 @@ const SuperAdmin = () => {
       });
     } catch (err) {
       console.error("Log Action Error:", err);
+    }
+  };
+
+  const handleResendCredentials = async (student: any) => {
+    if (!confirm(`Are you sure you want to resend credentials to ${student.full_name}?`)) return;
+    setProcessing(true);
+    try {
+      const res = await fetch('/api/send-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: student.email,
+          action: 'registration_success',
+          data: {
+            fullName: student.full_name,
+            regId: student.registration_id,
+            password: student.password || 'Contact Admin for your original password',
+            loginLink: window.location.origin + '/login'
+          }
+        })
+      });
+      if (!res.ok) throw new Error("Failed to send email");
+      toast.success("Credentials resent successfully!");
+      await logAdminAction('RESEND_CREDENTIALS', 'student', `Resent login credentials to ${student.full_name}`, { student_id: student.id });
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPassUser || !newPassword) return;
+    setProcessing(true);
+    try {
+      const { error } = await supabase.rpc('reset_user_password', {
+        user_email: resetPassUser.email,
+        new_password: newPassword
+      });
+      if (error) throw error;
+      
+      const { error: updateError } = await supabase.from('students').update({ password: newPassword }).eq('id', resetPassUser.id);
+      
+      toast.success("Password reset successfully!");
+      await logAdminAction('RESET_PASSWORD', 'student', `Manually reset password for ${resetPassUser.full_name} (Super Admin)`, { student_id: resetPassUser.id });
+      setIsResetPassOpen(false);
+      setNewPassword("");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -1327,6 +1383,9 @@ const SuperAdmin = () => {
                                 <DropdownMenuContent align="end" className="w-48 shadow-elegant p-1">
                                   <DropdownMenuItem onClick={() => { setSelectedUser(s); setIsViewDialogOpen(true); }} className="gap-2 py-2 px-3"><Eye className="size-4" /> View Details</DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => { setEditData({...s}); setIsEditDialogOpen(true); }} className="gap-2 py-2 px-3 text-primary"><Edit className="size-4" /> Edit Details</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setResetPassUser(s); setIsResetPassOpen(true); }} className="gap-2 py-2 px-3 text-orange-400"><LogIn className="size-4" /> Reset Password</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleResendCredentials(s)} className="gap-2 py-2 px-3 text-indigo-400"><Mail className="size-4" /> Resend Credentials</DropdownMenuItem>
+                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => toggleBlock(s)} className={`gap-2 py-2 px-3 ${s.status === "Blocked" ? "text-green-600" : "text-destructive"}`}>
                                     {s.status === "Blocked" ? <CheckCircle2 className="size-4" /> : <Ban className="size-4" />} {s.status === "Blocked" ? "Unblock" : "Block"}
                                   </DropdownMenuItem>
@@ -1721,7 +1780,6 @@ const SuperAdmin = () => {
                     onClick={async () => {
                       setIsSendingTestMail(true);
                       try {
-                        // Use the Vercel API which is now updated and live
                         const response = await fetch('/api/send-mail', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -1889,7 +1947,6 @@ const SuperAdmin = () => {
                 </div>
               </Card>
             </TabsContent>
-
 
             <TabsContent value="staff" className="space-y-6">
               <Card className="overflow-hidden border-none shadow-elegant bg-card/50 backdrop-blur-sm">
@@ -2741,6 +2798,39 @@ const SuperAdmin = () => {
           </div>
           <DialogFooter className="p-6 bg-slate-50 border-t">
             <Button className="w-full h-11 font-bold rounded-xl" onClick={() => setIsPermsDialogOpen(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={isResetPassOpen} onOpenChange={setIsResetPassOpen}>
+        <DialogContent className="sm:max-w-[425px] border-none shadow-elegant bg-slate-900 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-black">
+              <LogIn className="size-6 text-orange-400" />
+              Reset Student Password
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Set a new manual password for {resetPassUser?.full_name}. This will take effect immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-6">
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase text-slate-500">New Password</Label>
+              <Input 
+                type="text" 
+                value={newPassword} 
+                onChange={e => setNewPassword(e.target.value)} 
+                placeholder="Enter new password"
+                className="font-mono bg-white/5 border-white/10 h-12 rounded-xl focus:ring-orange-500/50"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" className="text-slate-400 hover:text-white" onClick={() => setIsResetPassOpen(false)}>Cancel</Button>
+            <Button variant="hero" className="bg-orange-500 hover:bg-orange-600 shadow-orange-500/20 px-8" onClick={handleResetPassword} disabled={processing || !newPassword}>
+              {processing && <Loader2 className="size-4 animate-spin mr-2" />} Update & Reset
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

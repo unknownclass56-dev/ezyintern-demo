@@ -51,6 +51,11 @@ const Admin = () => {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [isAIBuilderOpen, setIsAIBuilderOpen] = useState(false);
 
+  // Password Reset States
+  const [isResetPassOpen, setIsResetPassOpen] = useState(false);
+  const [resetPassUser, setResetPassUser] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState("");
+
   // Notification States
   const [newNoticeTitle, setNewNoticeTitle] = useState("");
   const [newNoticeMessage, setNewNoticeMessage] = useState("");
@@ -178,6 +183,58 @@ const Admin = () => {
       });
     } catch (err) {
       console.error("Log Action Error:", err);
+    }
+  };
+
+  const handleResendCredentials = async (student: any) => {
+    if (!confirm(`Are you sure you want to resend credentials to ${student.full_name}?`)) return;
+    setProcessing(true);
+    try {
+      const res = await fetch('/api/send-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: student.email,
+          action: 'registration_success',
+          data: {
+            fullName: student.full_name,
+            regId: student.registration_id,
+            password: student.password || 'Contact Admin for your original password',
+            loginLink: window.location.origin + '/login'
+          }
+        })
+      });
+      if (!res.ok) throw new Error("Failed to send email");
+      toast.success("Credentials resent successfully!");
+      await logAdminAction('RESEND_CREDENTIALS', 'student', `Resent login credentials to ${student.full_name}`, { student_id: student.id });
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPassUser || !newPassword) return;
+    setProcessing(true);
+    try {
+      const { error } = await supabase.rpc('reset_user_password', {
+        user_email: resetPassUser.email,
+        new_password: newPassword
+      });
+      if (error) throw error;
+      
+      // Update local password if stored (though it shouldn't be in plain text long term)
+      const { error: updateError } = await supabase.from('students').update({ password: newPassword }).eq('id', resetPassUser.id);
+      
+      toast.success("Password reset successfully!");
+      await logAdminAction('RESET_PASSWORD', 'student', `Manually reset password for ${resetPassUser.full_name}`, { student_id: resetPassUser.id });
+      setIsResetPassOpen(false);
+      setNewPassword("");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -1288,6 +1345,9 @@ const Admin = () => {
                                 <DropdownMenuContent align="end" className="w-48 shadow-elegant">
                                   <DropdownMenuItem onClick={() => { setSelectedUser(s); setIsViewDialogOpen(true); }} className="gap-2"><Eye className="size-4" /> View Details</DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => { setEditData({...s}); setIsEditDialogOpen(true); }} className="gap-2 text-primary"><Edit className="size-4" /> Edit Details</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setResetPassUser(s); setIsResetPassOpen(true); }} className="gap-2 text-orange-600"><LogIn className="size-4" /> Reset Password</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleResendCredentials(s)} className="gap-2 text-indigo-600"><Mail className="size-4" /> Resend Credentials</DropdownMenuItem>
+                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => toggleBlock(s)} className={`gap-2 ${s.status === "Blocked" ? "text-green-600" : "text-destructive"}`}>
                                     {s.status === "Blocked" ? <CheckCircle2 className="size-4" /> : <Ban className="size-4" />} {s.status === "Blocked" ? "Unblock" : "Block"}
                                   </DropdownMenuItem>
@@ -1915,6 +1975,38 @@ const Admin = () => {
         <div className="p-4 space-y-4"><div className="space-y-2"><Label>User Email</Label><Input value={staffEmail} onChange={e => setStaffEmail(e.target.value)} /></div></div>
         <DialogFooter><Button onClick={handleAddStaff}>Grant Access</Button></DialogFooter>
       </DialogContent></Dialog>
+
+      <Dialog open={isResetPassOpen} onOpenChange={setIsResetPassOpen}>
+        <DialogContent className="sm:max-w-[425px] border-none shadow-elegant">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogIn className="size-5 text-orange-600" />
+              Reset Student Password
+            </DialogTitle>
+            <DialogDescription>
+              Set a new manual password for {resetPassUser?.full_name}. This will take effect immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>New Password</Label>
+              <Input 
+                type="text" 
+                value={newPassword} 
+                onChange={e => setNewPassword(e.target.value)} 
+                placeholder="Enter new password"
+                className="font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResetPassOpen(false)}>Cancel</Button>
+            <Button variant="hero" className="bg-orange-600 hover:bg-orange-700 shadow-orange-200" onClick={handleResetPassword} disabled={processing || !newPassword}>
+              {processing && <Loader2 className="size-4 animate-spin mr-2" />} Update Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}><DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none shadow-elegant">
         <div className="bg-primary p-6 text-white">
