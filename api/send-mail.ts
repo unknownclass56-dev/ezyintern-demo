@@ -27,6 +27,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ success: false, message: 'Missing email or OTP for reset' });
     }
 
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'SMTP Credentials missing on Vercel. Please add SMTP_USER and SMTP_PASS in Vercel Settings.' 
+      });
+    }
+
     try {
       const transporter = nodemailer.createTransport({
         host: 'smtp.hostinger.com',
@@ -36,7 +43,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
-        authMethod: 'LOGIN', // Specific for some Hostinger/Titan mail configurations
         tls: {
           rejectUnauthorized: false
         }
@@ -83,6 +89,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return res.status(500).json({ 
+      success: false, 
+      message: 'SMTP Credentials missing on Vercel.' 
+    });
+  }
+
   try {
     const transporter = nodemailer.createTransport({
       host: 'smtp.hostinger.com',
@@ -92,7 +105,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
-      authMethod: 'LOGIN',
       tls: {
         rejectUnauthorized: false
       }
