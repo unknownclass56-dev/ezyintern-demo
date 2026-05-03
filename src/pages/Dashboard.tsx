@@ -17,7 +17,7 @@ import { useRef } from "react";
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'home' | 'profile'>('home');
+  const [activeView, setActiveView] = useState<'home' | 'profile' | 'settings'>('home');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [assignmentsList, setAssignmentsList] = useState<any[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -275,9 +275,9 @@ const Dashboard = () => {
               <User className="size-4" />
               <span className="hidden sm:inline">Profile</span>
             </Button>
-            <Button variant="ghost" size="sm" className="text-slate-600 hover:text-primary gap-2" onClick={() => setIsOfferLetterOpen(true)}>
-              <FileText className="size-4" />
-              <span className="hidden sm:inline">Offer Letter</span>
+            <Button variant="ghost" size="sm" className={`text-slate-600 hover:text-primary gap-2 ${activeView === 'settings' ? 'bg-primary/10 text-primary' : ''}`} onClick={() => setActiveView('settings')}>
+              <ShieldCheck className="size-4" />
+              <span className="hidden sm:inline">Settings</span>
             </Button>
             <div className="w-px h-4 bg-slate-200 mx-1"></div>
             <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 gap-2" onClick={async () => {
@@ -325,7 +325,41 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {activeView === 'profile' ? (
+          {activeView === 'settings' ? (
+            <div className="max-w-md mx-auto">
+              <Card className="p-8 shadow-elegant border-none bg-white">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2"><ShieldCheck className="size-5 text-primary" /> Security Settings</h3>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const newPass = (form.elements.namedItem('new_password') as HTMLInputElement).value;
+                  const confirmPass = (form.elements.namedItem('confirm_password') as HTMLInputElement).value;
+
+                  if (newPass !== confirmPass) return toast.error("Passwords do not match");
+                  if (newPass.length < 6) return toast.error("Password must be at least 6 characters");
+
+                  const { error } = await supabase.auth.updateUser({ password: newPass });
+                  if (error) toast.error(error.message);
+                  else {
+                    toast.success("Password updated successfully!");
+                    form.reset();
+                  }
+                }} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">New Password</label>
+                    <input name="new_password" type="password" className="w-full p-3 rounded-xl border bg-slate-50 focus:ring-2 focus:ring-primary/20 outline-none transition-all" required placeholder="••••••••" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Confirm New Password</label>
+                    <input name="confirm_password" type="password" className="w-full p-3 rounded-xl border bg-slate-50 focus:ring-2 focus:ring-primary/20 outline-none transition-all" required placeholder="••••••••" />
+                  </div>
+                  <Button type="submit" className="w-full h-12 shadow-glow gap-2 mt-2">
+                    <CheckCircle2 className="size-4" /> Update Password
+                  </Button>
+                </form>
+              </Card>
+            </div>
+          ) : activeView === 'profile' ? (
             <>
               <div id="profile-section" className="grid lg:grid-cols-3 gap-6 mb-8">
             <div className="lg:col-span-2 space-y-6">
