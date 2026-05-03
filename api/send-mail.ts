@@ -29,13 +29,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
       const transporter = nodemailer.createTransport({
-        host: 'smtp.hostinger.com', // Using hostinger's main SMTP for better reliability
+        host: 'smtp.hostinger.com',
         port: 587,
-        secure: false, // Use STARTTLS
+        secure: false,
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
+        tls: {
+          rejectUnauthorized: false // Helps with some hosting provider certificate issues
+        }
       });
 
       const mailOptions = {
@@ -66,7 +69,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, message: 'OTP sent successfully!' });
     } catch (error: any) {
       console.error('Error sending OTP:', error);
-      return res.status(500).json({ success: false, message: 'Failed to send OTP', error: error.message });
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to send OTP', 
+        error: error.message,
+        stack: error.stack // Temporarily adding for debugging
+      });
     }
   }
 
