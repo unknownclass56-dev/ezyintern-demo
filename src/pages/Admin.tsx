@@ -238,6 +238,37 @@ const Admin = () => {
     }
   };
 
+  const handleViewPaymentStudent = async (email: string) => {
+    setProcessing(true);
+    try {
+      // First check local state
+      let student = students.find(s => s.email === email);
+      
+      if (!student) {
+        // Fetch from DB if not in local paginated state
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (error) throw error;
+        student = data;
+      }
+      
+      if (student) {
+        setSelectedUser(student);
+        setIsViewDialogOpen(true);
+      } else {
+        toast.error("Student record not found in database.");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleSendNotification = async () => {
     if (!newNoticeTitle.trim() || !newNoticeMessage.trim()) return toast.error("Please fill title and message");
     if (newNoticeTarget === "specific" && !newNoticeTargetUserId.trim()) return toast.error("Please provide a student ID");
@@ -1272,20 +1303,20 @@ const Admin = () => {
                 <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                    <Input className="pl-9" placeholder="Name or email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    <Input className="pl-9" placeholder="Name or email..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setStudentPage(0); }} />
                   </div>
                   
-                  <Select value={domainFilter} onValueChange={setDomainFilter}>
+                  <Select value={domainFilter} onValueChange={(v) => { setDomainFilter(v); setStudentPage(0); }}>
                     <SelectTrigger className="gap-2"><Briefcase className="size-4" /><SelectValue placeholder="All Domains" /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All Domains</SelectItem>{domains.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
                   </Select>
 
-                  <Select value={uniFilter} onValueChange={setUniFilter}>
+                  <Select value={uniFilter} onValueChange={(v) => { setUniFilter(v); setStudentPage(0); }}>
                     <SelectTrigger className="gap-2"><Building2 className="size-4" /><SelectValue placeholder="All Universities" /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All Universities</SelectItem>{unis.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}</SelectContent>
                   </Select>
 
-                  <Select value={collegeFilter} onValueChange={setCollegeFilter}>
+                  <Select value={collegeFilter} onValueChange={(v) => { setCollegeFilter(v); setStudentPage(0); }}>
                     <SelectTrigger className="gap-2"><GraduationCap className="size-4" /><SelectValue placeholder="All Colleges" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Colleges</SelectItem>
@@ -1447,14 +1478,18 @@ const Admin = () => {
                       <Table>
                         <TableHeader><TableRow><TableHead className="w-10"><Checkbox checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onCheckedChange={toggleSelectAll} /></TableHead><TableHead>Student</TableHead><TableHead>Domain</TableHead></TableRow></TableHeader>
                         <TableBody>
-                          {filteredStudents.map(s => (
+                          {filteredStudents
+                            .filter(s => (!certProgram || s.internship_domain === certProgram) && s.status !== "Blocked")
+                            .map(s => (
                             <TableRow key={s.id} className={selectedStudents.includes(s.id) ? "bg-primary/5" : ""}>
                               <TableCell><Checkbox checked={selectedStudents.includes(s.id)} onCheckedChange={() => toggleSelect(s.id)} /></TableCell>
                               <TableCell className="font-medium text-xs">{s.full_name}</TableCell>
                               <TableCell className="text-[10px] text-muted-foreground">{s.internship_domain}</TableCell>
                             </TableRow>
                           ))}
-                          {filteredStudents.length === 0 && <TableRow><TableCell colSpan={3} className="text-center py-10 text-muted-foreground">No students found.</TableCell></TableRow>}
+                          {filteredStudents.filter(s => (!certProgram || s.internship_domain === certProgram) && s.status !== "Blocked").length === 0 && (
+                            <TableRow><TableCell colSpan={3} className="text-center py-10 text-muted-foreground">No active students found for {certProgram || "this domain"}.</TableCell></TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </ScrollArea>
@@ -1648,17 +1683,11 @@ const Admin = () => {
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
-                                  className="size-8 p-0" 
-                                  onClick={() => {
-                                    if (student) {
-                                      setSelectedUser(student);
-                                      setIsViewDialogOpen(true);
-                                    } else {
-                                      toast.error("Student record not found in database");
-                                    }
-                                  }}
+                                  className="size-8 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors" 
+                                  disabled={processing}
+                                  onClick={() => handleViewPaymentStudent(pay.email)}
                                 >
-                                  <Eye className="size-4" />
+                                  {processing ? <Loader2 className="size-4 animate-spin text-indigo-600" /> : <Eye className="size-4" />}
                                 </Button>
                               </TableCell>
                             </TableRow>

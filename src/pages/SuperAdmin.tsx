@@ -272,6 +272,35 @@ const SuperAdmin = () => {
     }
   };
 
+  const handleViewPaymentStudent = async (email: string) => {
+    setProcessing(true);
+    try {
+      let student = students.find(s => s.email === email);
+      
+      if (!student) {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (error) throw error;
+        student = data;
+      }
+      
+      if (student) {
+        setSelectedUser(student);
+        setIsViewDialogOpen(true);
+      } else {
+        toast.error("Detailed profile not found in database.");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const fetchLogs = async () => {
     setLogsLoading(true);
     try {
@@ -1312,20 +1341,20 @@ const SuperAdmin = () => {
                 <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                    <Input className="pl-9" placeholder="Name or email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    <Input className="pl-9" placeholder="Name or email..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setStudentPage(0); }} />
                   </div>
                   
-                  <Select value={domainFilter} onValueChange={setDomainFilter}>
+                  <Select value={domainFilter} onValueChange={(v) => { setDomainFilter(v); setStudentPage(0); }}>
                     <SelectTrigger className="gap-2"><Briefcase className="size-4" /><SelectValue placeholder="All Domains" /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All Domains</SelectItem>{domains.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
                   </Select>
 
-                  <Select value={uniFilter} onValueChange={setUniFilter}>
+                  <Select value={uniFilter} onValueChange={(v) => { setUniFilter(v); setStudentPage(0); }}>
                     <SelectTrigger className="gap-2"><Building2 className="size-4" /><SelectValue placeholder="All Universities" /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All Universities</SelectItem>{unis.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}</SelectContent>
                   </Select>
 
-                  <Select value={collegeFilter} onValueChange={setCollegeFilter}>
+                  <Select value={collegeFilter} onValueChange={(v) => { setCollegeFilter(v); setStudentPage(0); }}>
                     <SelectTrigger className="gap-2"><GraduationCap className="size-4" /><SelectValue placeholder="All Colleges" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Colleges</SelectItem>
@@ -1490,13 +1519,18 @@ const SuperAdmin = () => {
                       <Table>
                         <TableHeader><TableRow><TableHead className="w-10"><Checkbox checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onCheckedChange={toggleSelectAll} /></TableHead><TableHead>Student</TableHead><TableHead>Domain</TableHead></TableRow></TableHeader>
                         <TableBody>
-                          {filteredStudents.map(s => (
+                          {filteredStudents
+                            .filter(s => (!certProgram || s.internship_domain === certProgram) && s.status !== "Blocked")
+                            .map(s => (
                             <TableRow key={s.id} className={`transition-colors ${selectedStudents.includes(s.id) ? "bg-primary/5" : ""}`}>
                               <TableCell><Checkbox checked={selectedStudents.includes(s.id)} onCheckedChange={() => toggleSelect(s.id)} /></TableCell>
                               <TableCell className="font-bold text-xs tracking-tight">{s.full_name}</TableCell>
                               <TableCell className="text-[10px] font-black text-muted-foreground uppercase">{s.internship_domain}</TableCell>
                             </TableRow>
                           ))}
+                          {filteredStudents.filter(s => (!certProgram || s.internship_domain === certProgram) && s.status !== "Blocked").length === 0 && (
+                            <TableRow><TableCell colSpan={3} className="text-center py-10 text-muted-foreground font-medium italic">No active students found for {certProgram || "selected domain"}.</TableCell></TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </ScrollArea>
@@ -2029,17 +2063,10 @@ const SuperAdmin = () => {
                                 variant="ghost" 
                                 size="sm" 
                                 className="size-8 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors" 
-                                onClick={() => {
-                                  const student = students.find(s => s.email === pay.email);
-                                  if (student) {
-                                    setSelectedUser(student);
-                                    setIsViewDialogOpen(true);
-                                  } else {
-                                    toast.error("Detailed profile not found");
-                                  }
-                                }}
+                                disabled={processing}
+                                onClick={() => handleViewPaymentStudent(pay.email)}
                               >
-                                <Eye className="size-4" />
+                                {processing ? <Loader2 className="size-4 animate-spin text-indigo-600" /> : <Eye className="size-4" />}
                               </Button>
                             </TableCell>
                           </TableRow>
