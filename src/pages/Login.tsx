@@ -80,16 +80,40 @@ const Login = () => {
     }
     setResetLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
-      if (error) throw error;
-      toast.success("Password reset code sent to your email!");
+      // 1. Generate a 6-digit OTP
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // 2. Store OTP in database (public.password_resets table)
+      const { error: dbError } = await supabase
+        .from('password_resets')
+        .insert([{ email: resetEmail, otp: generatedOtp }]);
+      
+      if (dbError) throw new Error("Failed to initialize reset. Please try again.");
+
+      // 3. Send OTP via custom API
+      const response = await fetch('/api/send-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: resetEmail,
+          otp: generatedOtp,
+          action: 'send_otp'
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API Error Response:", errorText);
+        throw new Error(`API Error (${response.status}): Make sure you are running 'vercel dev' or have deployed the API.`);
+      }
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || "Failed to send email");
+
+      toast.success("OTP sent successfully to your email!");
       setResetStep("otp");
     } catch (error: any) {
-      if (error.message.includes("rate limit")) {
-        toast.error("Please wait a moment before requesting another code.");
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error.message || "Something went wrong");
     } finally {
       setResetLoading(false);
     }
@@ -100,21 +124,10 @@ const Login = () => {
       toast.error("Please enter the 6-digit code");
       return;
     }
-    setResetLoading(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: resetEmail,
-        token: resetOtp,
-        type: 'recovery',
-      });
-      if (error) throw error;
-      toast.success("Code verified! Please set a new password.");
-      setResetStep("password");
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setResetLoading(false);
-    }
+    // We just transition to the password step. 
+    // Real verification happens in the final RPC call for security.
+    toast.success("Code entered! Now set your new password.");
+    setResetStep("password");
   };
 
   const handleUpdatePassword = async () => {
@@ -124,16 +137,24 @@ const Login = () => {
     }
     setResetLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      // Call the secure RPC function to verify OTP and reset password
+      const { data, error } = await supabase.rpc('reset_user_password', {
+        p_email: resetEmail,
+        p_otp: resetOtp,
+        p_new_password: newPassword
+      });
+
       if (error) throw error;
-      toast.success("Password updated successfully!");
+      if (!data) throw new Error("Invalid or expired OTP code. Please try again.");
+
+      toast.success("Password updated successfully! You can now login.");
       setShowResetDialog(false);
       setResetStep("email");
       setResetEmail("");
       setResetOtp("");
       setNewPassword("");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Failed to reset password");
     } finally {
       setResetLoading(false);
     }
