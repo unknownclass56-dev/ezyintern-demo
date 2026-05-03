@@ -20,7 +20,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const { name, email, message, otp, action } = req.body;
+  const { name, email, message, otp, action, to, subject } = req.body;
+
+  if (action === 'test_mail') {
+    if (!to || !subject || !message) {
+      return res.status(400).json({ success: false, message: 'Missing to, subject, or message' });
+    }
+
+    try {
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.hostinger.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: `"EzyIntern Test" <${process.env.SMTP_USER}>`,
+        to: to,
+        subject: `[TEST] ${subject}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #0084FF;">EzyIntern Mail Test</h2>
+            <p>This is a manual test email sent from the Super Admin Panel.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p><strong>Message:</strong></p>
+            <p style="background: #f9f9f9; padding: 15px; border-radius: 5px;">${message}</p>
+            <p style="font-size: 12px; color: #999; margin-top: 20px;">Sent at: ${new Date().toLocaleString()}</p>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      return res.status(200).json({ success: true, message: 'Test email sent successfully!' });
+    } catch (error: any) {
+      console.error('Error sending test email:', error);
+      return res.status(500).json({ success: false, message: 'Failed to send test email', error: error.message });
+    }
+  }
 
   if (action === 'send_otp') {
     if (!email || !otp) {

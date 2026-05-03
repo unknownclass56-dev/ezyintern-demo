@@ -4,6 +4,7 @@ import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const SMTP_USER = Deno.env.get("SMTP_USER") ?? "noreply@ezyintern.in";
@@ -180,7 +181,10 @@ function contactTemplate(name: string, email: string, message: string): string {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { 
+      status: 200, 
+      headers: corsHeaders 
+    });
   }
 
   try {
@@ -209,6 +213,20 @@ serve(async (req) => {
       subject = `New Contact Request from ${data.name}`;
       htmlContent = contactTemplate(data.name, data.email, data.message);
       recipient = "noreply@ezyintern.in"; // Contact form goes to admin
+    } else if (type === "test_diagnostic") {
+      subject = `Diagnostic Test: ${data.subject || 'No Subject'}`;
+      htmlContent = `
+        <div style="font-family: sans-serif; padding: 20px; border: 2px solid #4F46E5; border-radius: 12px;">
+          <h2 style="color: #4F46E5;">🛠️ EzyIntern SMTP Diagnostic</h2>
+          <p>This is a manual test email triggered from the Super Admin Panel.</p>
+          <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4F46E5;">
+            <p><strong>Test Message:</strong></p>
+            <p style="white-space: pre-wrap;">${data.message || 'No message content provided.'}</p>
+          </div>
+          <p style="font-size: 12px; color: #94a3b8;">Timestamp: ${new Date().toISOString()}</p>
+          <p style="font-size: 12px; color: #94a3b8;">Host: ${SMTP_HOST}</p>
+        </div>
+      `;
     } else {
       return new Response(JSON.stringify({ error: "Unknown email type" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }

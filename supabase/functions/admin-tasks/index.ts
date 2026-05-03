@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -135,6 +136,46 @@ serve(async (req) => {
       await supabase.from("payment_cancelled").delete().eq("id", leadId);
 
       return new Response(JSON.stringify({ success: true, userId: newUser.user.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    if (action === "send_test_email") {
+      const { to, subject, message } = await req.json();
+      
+      const SMTP_USER = Deno.env.get("SMTP_USER") ?? "noreply@ezyintern.in";
+      const SMTP_PASS = Deno.env.get("SMTP_PASS") ?? "";
+      const SMTP_HOST = Deno.env.get("SMTP_HOST") ?? "smtp.hostinger.com";
+      const SMTP_PORT = parseInt(Deno.env.get("SMTP_PORT") ?? "465");
+
+      const client = new SmtpClient();
+      await client.connectTLS({
+        hostname: SMTP_HOST,
+        port: SMTP_PORT,
+        username: SMTP_USER,
+        password: SMTP_PASS,
+      });
+
+      await client.send({
+        from: `EzyIntern Admin Test <${SMTP_USER}>`,
+        to: to,
+        subject: `[ADMIN TEST] ${subject}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 24px; border: 2px solid #4F46E5; border-radius: 16px;">
+            <h2 style="color: #4F46E5; margin-top: 0;">🚀 Admin Task: Mail Diagnostic</h2>
+            <p>This test email was routed through the <strong>admin-tasks</strong> edge function.</p>
+            <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #4F46E5;">
+              <p><strong>Message:</strong></p>
+              <p style="white-space: pre-wrap; color: #1e293b;">${message}</p>
+            </div>
+            <p style="font-size: 11px; color: #94a3b8;">Sent by: ${user.email} | Time: ${new Date().toLocaleString()}</p>
+          </div>
+        `,
+      });
+
+      await client.close();
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }

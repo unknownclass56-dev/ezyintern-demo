@@ -50,6 +50,10 @@ const SuperAdmin = () => {
   const [paymentConfig, setPaymentConfig] = useState<any>(null);
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [testMailTo, setTestMailTo] = useState("");
+  const [testMailSubject, setTestMailSubject] = useState("System Diagnostic");
+  const [testMailBody, setTestMailBody] = useState("Hello! This is a test email from the EzyIntern Super Admin panel to verify SMTP settings.");
+  const [isSendingTestMail, setIsSendingTestMail] = useState(false);
   const [logsPage, setLogsPage] = useState(0);
   const [logsTotalCount, setLogsTotalCount] = useState(0);
   const [logsSearchTerm, setLogsSearchTerm] = useState("");
@@ -1487,6 +1491,80 @@ const SuperAdmin = () => {
                     </div>
                     <p className="text-[9px] text-muted-foreground italic mt-2">Note: Key Secret is stored securely and never exposed to students.</p>
                   </div>
+                </Card>
+
+                <Card className="p-8 border-none shadow-elegant bg-gradient-to-br from-blue-50/50 to-white md:col-span-2">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-black flex items-center gap-2"><Mail className="size-5 text-blue-600" /> Test Mail Delivery</h3>
+                      <p className="text-xs text-muted-foreground font-medium">Verify your SMTP configuration by sending a manual test email.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Recipient Email</Label>
+                        <Input 
+                          value={testMailTo} 
+                          onChange={e => setTestMailTo(e.target.value)}
+                          placeholder="test@example.com" 
+                          className="bg-white shadow-soft h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Subject</Label>
+                        <Input 
+                          value={testMailSubject} 
+                          onChange={e => setTestMailSubject(e.target.value)}
+                          placeholder="Test Email Subject" 
+                          className="bg-white shadow-soft h-11"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground">Message Body</Label>
+                      <textarea 
+                        value={testMailBody} 
+                        onChange={e => setTestMailBody(e.target.value)}
+                        placeholder="Type your test message here..." 
+                        className="w-full h-[120px] p-4 rounded-xl border bg-white shadow-soft focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm resize-none"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full h-12 gap-2 mt-6 shadow-glow font-bold" 
+                    disabled={isSendingTestMail || !testMailTo}
+                    onClick={async () => {
+                      setIsSendingTestMail(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("admin-tasks", {
+                          body: {
+                            action: "send_test_email",
+                            to: testMailTo,
+                            subject: testMailSubject,
+                            message: testMailBody
+                          }
+                        });
+                        
+                        if (error) throw error;
+                        
+                        if (data?.success) {
+                          toast.success("Test email sent successfully via Admin-Tasks! Check your inbox.");
+                        } else {
+                          toast.error(data?.error || "Failed to send test email.");
+                        }
+                      } catch (err: any) {
+                        toast.error(err.message || "Network error while sending test email.");
+                        console.error(err);
+                      } finally {
+                        setIsSendingTestMail(false);
+                      }
+                    }}
+                  >
+                    {isSendingTestMail ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
+                    {isSendingTestMail ? 'Sending Test Mail...' : 'Send Test Diagnostic Email'}
+                  </Button>
                 </Card>
               </div>
             </TabsContent>
