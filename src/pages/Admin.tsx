@@ -99,6 +99,14 @@ const Admin = () => {
   const [newClassSchedule, setNewClassSchedule] = useState("");
   const [newClassDomain, setNewClassDomain] = useState("all");
 
+  // Bulk Email States
+  const [bulkEmailSubject, setBulkEmailSubject] = useState("");
+  const [bulkEmailBody, setBulkEmailBody] = useState("");
+  const [isSendingBulk, setIsSendingBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
+  const [csvEmails, setCsvEmails] = useState<string[]>([]);
+
   const logAdminAction = async (action_type: string, entity_type: string, description: string, metadata: any = {}) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -898,6 +906,7 @@ const Admin = () => {
                 <TabsTrigger value="leads" className="gap-2"><UserPlus className="size-4" /> Leads</TabsTrigger>
                 <TabsTrigger value="notifications" className="gap-2"><Bell className="size-4" /> Notifications</TabsTrigger>
                 <TabsTrigger value="assignments" className="gap-2"><FileText className="size-4" /> Assignments</TabsTrigger>
+                <TabsTrigger value="comms" className="gap-2"><Mail className="size-4" /> Communications</TabsTrigger>
                 {isServiceEnabled('settings') && <TabsTrigger value="settings" className="gap-2"><Building2 className="size-4" /> System Settings</TabsTrigger>}
               </TabsList>
 
@@ -1514,6 +1523,178 @@ const Admin = () => {
                   </Table>
                 </ScrollArea>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="comms" className="animate-fade-in">
+              <div className="grid lg:grid-cols-3 gap-6">
+                {/* Left: Compose Section */}
+                <Card className="lg:col-span-2 p-6 shadow-soft border-slate-100">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Mail className="size-5 text-primary" />
+                        Compose Bulk Email
+                      </h2>
+                      <p className="text-sm text-muted-foreground mt-1">Send custom announcements to your students</p>
+                    </div>
+                    {isSendingBulk && (
+                      <div className="flex items-center gap-3 bg-primary/5 px-4 py-2 rounded-full border border-primary/20">
+                        <Loader2 className="size-4 animate-spin text-primary" />
+                        <span className="text-sm font-bold text-primary">Sending {bulkProgress}/{bulkTotal}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <Label>Email Subject</Label>
+                      <Input 
+                        placeholder="Enter email subject" 
+                        value={bulkEmailSubject}
+                        onChange={(e) => setBulkEmailSubject(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Message Content (Supports text & basic HTML)</Label>
+                      <textarea 
+                        className="w-full min-h-[300px] p-4 rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary/20 transition-all text-sm resize-y"
+                        placeholder="Write your message here... \nUse <br/> for new lines or <p> for paragraphs."
+                        value={bulkEmailBody}
+                        onChange={(e) => setBulkEmailBody(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Recipients selected: </span>
+                        <span className="font-bold text-primary">{selectedStudents.length + csvEmails.length}</span>
+                      </div>
+                      <Button 
+                        variant="hero" 
+                        size="lg" 
+                        className="px-8 shadow-glow"
+                        disabled={isSendingBulk || (!bulkEmailSubject || !bulkEmailBody) || (selectedStudents.length === 0 && csvEmails.length === 0)}
+                        onClick={async () => {
+                          const targets = [
+                            ...students.filter(s => selectedStudents.includes(s.id)).map(s => s.email),
+                            ...csvEmails
+                          ];
+                          const uniqueTargets = Array.from(new Set(targets));
+                          
+                          if (!confirm(`Are you sure you want to send this email to ${uniqueTargets.length} recipients?`)) return;
+                          
+                          setIsSendingBulk(true);
+                          setBulkTotal(uniqueTargets.length);
+                          setBulkProgress(0);
+                          
+                          for (let i = 0; i < uniqueTargets.length; i++) {
+                            try {
+                              await fetch('/api/send-mail', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  action: 'bulk_custom_mail',
+                                  to: uniqueTargets[i],
+                                  subject: bulkEmailSubject,
+                                  message: bulkEmailBody
+                                })
+                              });
+                              setBulkProgress(i + 1);
+                            } catch (err) {
+                              console.error(`Failed to send to ${uniqueTargets[i]}`, err);
+                            }
+                          }
+                          
+                          setIsSendingBulk(false);
+                          toast.success(`Batch complete! Successfully sent to ${uniqueTargets.length} recipients.`);
+                          setBulkEmailSubject("");
+                          setBulkEmailBody("");
+                        }}
+                      >
+                        {isSendingBulk ? "Sending..." : "Send Bulk Email Now"}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Right: Selection & CSV Section */}
+                <div className="space-y-6">
+                  <Card className="p-5 shadow-soft border-slate-100">
+                    <h3 className="font-bold mb-4 flex items-center gap-2">
+                      <Users className="size-4 text-primary" />
+                      Target Selection
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200">
+                        <p className="text-xs text-muted-foreground mb-3 text-center">Upload CSV with 'email' column</p>
+                        <Input 
+                          type="file" 
+                          accept=".csv" 
+                          className="bg-white"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              Papa.parse(file, {
+                                header: true,
+                                complete: (results) => {
+                                  const emails = results.data
+                                    .map((row: any) => row.email || row.Email || row.EMAIL)
+                                    .filter(e => e && e.includes("@"));
+                                  setCsvEmails(emails);
+                                  toast.success(`Imported ${emails.length} emails from CSV`);
+                                }
+                              });
+                            }
+                          }}
+                        />
+                        {csvEmails.length > 0 && (
+                          <div className="mt-3 flex items-center justify-between">
+                            <Badge variant="outline" className="bg-white">{csvEmails.length} from CSV</Badge>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500" onClick={() => setCsvEmails([])}>Clear</Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <p className="text-xs font-bold text-muted-foreground uppercase mb-3">Filter & Select Students</p>
+                        <div className="space-y-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full justify-start gap-2"
+                            onClick={() => setSelectedStudents(students.map(s => s.id))}
+                          >
+                            <CheckCircle2 className="size-4" /> Select All Fetched ({students.length})
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full justify-start gap-2 text-red-500"
+                            onClick={() => setSelectedStudents([])}
+                          >
+                            <Trash2 className="size-4" /> Clear Selection
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-5 shadow-soft border-slate-100 bg-primary/5 border-primary/10">
+                    <h3 className="font-bold mb-2 flex items-center gap-2">
+                      <Shield className="size-4 text-primary" />
+                      Pro Tips
+                    </h3>
+                    <ul className="text-xs space-y-2 text-slate-600 list-disc pl-4">
+                      <li>You can use basic HTML like <b>bold</b> or <i>italic</i>.</li>
+                      <li>Check selection counts before sending.</li>
+                      <li>CSV upload is the fastest way for large groups.</li>
+                      <li>Do not close this window while sending is in progress.</li>
+                    </ul>
+                  </Card>
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="settings">

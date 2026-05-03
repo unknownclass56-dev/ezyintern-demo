@@ -119,6 +119,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           <a href="https://www.ezyintern.com/dashboard" style="display:inline-block; padding: 12px 24px; background: #059669; color: white; text-decoration: none; border-radius: 8px;">Download Certificate</a>
         </div>
       `;
+    } else if (action === 'bulk_custom_mail') {
+      mailOptions.subject = subject || 'Update from EzyIntern';
+      mailOptions.html = `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; background: #ffffff;">
+          <div style="background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); padding: 32px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">EzyIntern Announcement</h1>
+          </div>
+          <div style="padding: 40px 32px; color: #1e293b; line-height: 1.6;">
+            <div style="font-size: 16px;">
+              ${message.replace(/\n/g, '<br/>')}
+            </div>
+          </div>
+          <div style="background: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0; font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">EzyIntern — Empowering Future Careers</p>
+            <p style="margin: 4px 0 0; font-size: 11px; color: #cbd5e1;">This is an official communication from the EzyIntern platform.</p>
+          </div>
+        </div>
+      `;
     } else {
       // Default contact form
       mailOptions.from = `"EzyIntern Contact" <${SMTP_USER}>`;

@@ -58,6 +58,14 @@ const SuperAdmin = () => {
   const [logsTotalCount, setLogsTotalCount] = useState(0);
   const [logsSearchTerm, setLogsSearchTerm] = useState("");
 
+  // Bulk Email States
+  const [bulkEmailSubject, setBulkEmailSubject] = useState("");
+  const [bulkEmailBody, setBulkEmailBody] = useState("");
+  const [isSendingBulk, setIsSendingBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
+  const [csvEmails, setCsvEmails] = useState<string[]>([]);
+
   // Selection & Filters
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1063,6 +1071,7 @@ const SuperAdmin = () => {
                 <TabsTrigger value="payments" className="gap-2"><DollarSign className="size-4" /> Transactions</TabsTrigger>
                 <TabsTrigger value="leads" className="gap-2"><UserPlus className="size-4" /> Leads</TabsTrigger>
                 <TabsTrigger value="staff" className="gap-2"><Shield className="size-4" /> Staff</TabsTrigger>
+                <TabsTrigger value="comms" className="gap-2"><Mail className="size-4" /> Communications</TabsTrigger>
                 <TabsTrigger value="logs" className="gap-2"><Clock className="size-4" /> Activity Logs</TabsTrigger>
                 <TabsTrigger value="settings" className="gap-2"><Building2 className="size-4" /> Settings</TabsTrigger>
               </TabsList>
@@ -1974,6 +1983,190 @@ const SuperAdmin = () => {
                     <h3 className="text-2xl font-black text-slate-800 mb-6">Internship Domains</h3>
                     <div className="flex gap-3 mb-6"><Input value={newDomain} onChange={e => setNewDomain(e.target.value)} placeholder="New Domain..." className="h-12 bg-white shadow-soft rounded-xl border-none" /><Button variant="hero" className="h-12 px-6 shadow-glow font-bold rounded-xl" onClick={addDomain}>Add</Button></div>
                     <div className="flex flex-wrap gap-2">{domains.map(d => <Badge key={d.id} variant="secondary" className="pl-4 pr-1 py-2 gap-2 text-xs font-bold rounded-full bg-white border border-slate-100 shadow-sm group">{d.name} <Button size="sm" variant="ghost" className="size-4 p-0 opacity-0 group-hover:opacity-100" onClick={() => delDomain(d.id)}><Trash2 className="size-3" /></Button></Badge>)}</div>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="comms" className="animate-fade-in">
+              <div className="grid lg:grid-cols-3 gap-6">
+                {/* Left: Compose Section */}
+                <Card className="lg:col-span-2 p-8 border-none shadow-elegant bg-white">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h2 className="text-2xl font-black flex items-center gap-2">
+                        <Mail className="size-6 text-primary" />
+                        Bulk Communication Hub
+                      </h2>
+                      <p className="text-sm text-muted-foreground font-medium mt-1">Broadcast professional announcements to the student body.</p>
+                    </div>
+                    {isSendingBulk && (
+                      <div className="flex items-center gap-3 bg-primary/10 px-6 py-3 rounded-2xl border border-primary/20">
+                        <Loader2 className="size-5 animate-spin text-primary" />
+                        <span className="text-sm font-black text-primary">SENDING {bulkProgress}/{bulkTotal}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Email Subject</Label>
+                      <Input 
+                        placeholder="Enter announcement subject..." 
+                        className="h-12 bg-slate-50 border-none shadow-inner text-sm font-bold"
+                        value={bulkEmailSubject}
+                        onChange={(e) => setBulkEmailSubject(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Message Body (HTML Supported)</Label>
+                      <textarea 
+                        className="w-full min-h-[400px] p-6 rounded-3xl border-none bg-slate-50 shadow-inner focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium resize-y"
+                        placeholder="Type your message here... \n\nTips: \n- Use <br/> for new lines\n- Use <b>text</b> for bold\n- Use <p> for paragraphs"
+                        value={bulkEmailBody}
+                        onChange={(e) => setBulkEmailBody(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-100">
+                      <div className="flex items-center gap-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-muted-foreground uppercase">Target Recipients</span>
+                          <span className="text-xl font-black text-primary">{selectedStudents.length + csvEmails.length}</span>
+                        </div>
+                        <Badge variant="secondary" className="h-fit">Ready to Send</Badge>
+                      </div>
+                      <Button 
+                        variant="hero" 
+                        size="lg" 
+                        className="h-14 px-10 shadow-glow rounded-2xl font-black"
+                        disabled={isSendingBulk || (!bulkEmailSubject || !bulkEmailBody) || (selectedStudents.length === 0 && csvEmails.length === 0)}
+                        onClick={async () => {
+                          const targets = [
+                            ...students.filter(s => selectedStudents.includes(s.id)).map(s => s.email),
+                            ...csvEmails
+                          ];
+                          const uniqueTargets = Array.from(new Set(targets));
+                          
+                          if (!confirm(`Are you sure you want to broadcast this to ${uniqueTargets.length} recipients?`)) return;
+                          
+                          setIsSendingBulk(true);
+                          setBulkTotal(uniqueTargets.length);
+                          setBulkProgress(0);
+                          
+                          for (let i = 0; i < uniqueTargets.length; i++) {
+                            try {
+                              await fetch('/api/send-mail', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  action: 'bulk_custom_mail',
+                                  to: uniqueTargets[i],
+                                  subject: bulkEmailSubject,
+                                  message: bulkEmailBody
+                                })
+                              });
+                              setBulkProgress(i + 1);
+                            } catch (err) {
+                              console.error(`Failed to send to ${uniqueTargets[i]}`, err);
+                            }
+                          }
+                          
+                          setIsSendingBulk(false);
+                          toast.success(`Broadcasting complete! Sent to ${uniqueTargets.length} recipients.`);
+                          setBulkEmailSubject("");
+                          setBulkEmailBody("");
+                        }}
+                      >
+                        {isSendingBulk ? "BROADCASTING..." : "DEPLOY BROADCAST NOW"}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Right: Selection & CSV Section */}
+                <div className="space-y-6">
+                  <Card className="p-6 border-none shadow-elegant bg-slate-900 text-white">
+                    <h3 className="font-black mb-6 flex items-center gap-2">
+                      <Users className="size-5 text-primary" />
+                      Recipient Selection
+                    </h3>
+                    <div className="space-y-6">
+                      <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
+                        <p className="text-[10px] font-black uppercase text-slate-400 mb-3 text-center tracking-widest">CSV Import (.csv)</p>
+                        <Input 
+                          type="file" 
+                          accept=".csv" 
+                          className="bg-white/10 border-none text-white text-xs h-10"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              Papa.parse(file, {
+                                header: true,
+                                complete: (results) => {
+                                  const emails = results.data
+                                    .map((row: any) => row.email || row.Email || row.EMAIL)
+                                    .filter(e => e && e.includes("@"));
+                                  setCsvEmails(emails);
+                                  toast.success(`Imported ${emails.length} emails from CSV`);
+                                }
+                              });
+                            }
+                          }}
+                        />
+                        {csvEmails.length > 0 && (
+                          <div className="mt-4 flex items-center justify-between">
+                            <Badge className="bg-primary text-white border-none">{csvEmails.length} Imported</Badge>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-white/5" onClick={() => setCsvEmails([])}>Clear</Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Global Selection</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full justify-start gap-2 h-11 bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-xl"
+                          onClick={() => setSelectedStudents(students.map(s => s.id))}
+                        >
+                          <CheckCircle2 className="size-4 text-emerald-400" /> Select All Interns ({students.length})
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full justify-start gap-2 h-11 text-red-400 hover:text-red-300 hover:bg-white/5 rounded-xl"
+                          onClick={() => setSelectedStudents([])}
+                        >
+                          <Trash2 className="size-4" /> Reset Selection
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6 border-none shadow-elegant bg-gradient-to-br from-indigo-600 to-indigo-800 text-white">
+                    <h3 className="font-black mb-4 flex items-center gap-2">
+                      <Shield className="size-5 text-white/80" />
+                      Global Protocol
+                    </h3>
+                    <ul className="text-xs space-y-3 text-indigo-100 font-medium">
+                      <li className="flex gap-2">
+                        <div className="size-1.5 rounded-full bg-white/40 mt-1.5 shrink-0" />
+                        <span>Emails are sent using the production SMTP relay.</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <div className="size-1.5 rounded-full bg-white/40 mt-1.5 shrink-0" />
+                        <span>Ensure HTML tags are properly closed to avoid formatting issues.</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <div className="size-1.5 rounded-full bg-white/40 mt-1.5 shrink-0" />
+                        <span>CSV files must have an "email" column for parsing.</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <div className="size-1.5 rounded-full bg-white/40 mt-1.5 shrink-0" />
+                        <span>Do not refresh the page until the broadcast is 100% complete.</span>
+                      </li>
+                    </ul>
                   </Card>
                 </div>
               </div>
