@@ -6,9 +6,9 @@ const SMTP_PASS = process.env.SMTP_PASS;
 console.log("Using SMTP_USER:", SMTP_USER);
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.ezyintern.in',
-  port: 465,
-  secure: true,
+  host: 'smtp.hostinger.com',
+  port: 587,
+  secure: false,
   auth: {
     user: SMTP_USER,
     pass: SMTP_PASS,

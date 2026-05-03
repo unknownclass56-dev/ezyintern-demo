@@ -29,9 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
       const transporter = nodemailer.createTransport({
-        host: 'smtp.ezyintern.in',
-        port: 465,
-        secure: true,
+        host: 'smtp.hostinger.com', // Using hostinger's main SMTP for better reliability
+        port: 587,
+        secure: false, // Use STARTTLS
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
@@ -76,9 +76,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const transporter = nodemailer.createTransport({
-      host: 'smtp.ezyintern.in',
-      port: 465,
-      secure: true,
+      host: 'smtp.hostinger.com',
+      port: 587,
+      secure: false,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
