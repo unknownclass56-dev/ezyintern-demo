@@ -36,8 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
+        authMethod: 'LOGIN', // Specific for some Hostinger/Titan mail configurations
         tls: {
-          rejectUnauthorized: false // Helps with some hosting provider certificate issues
+          rejectUnauthorized: false
         }
       });
 
@@ -91,6 +92,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      authMethod: 'LOGIN',
+      tls: {
+        rejectUnauthorized: false
+      }
     });
 
     // 1. Send the email containing user message to the admin
