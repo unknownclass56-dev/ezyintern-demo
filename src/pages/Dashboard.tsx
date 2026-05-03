@@ -684,10 +684,50 @@ const Dashboard = () => {
                 </div>
 
                 {/* Header */}
-                <div className="-mx-[12mm] md:-mx-[15mm] -mt-[12mm] md:-mt-[15mm] mb-6 relative z-10">
-                  <img src="/cert-header.png" alt="Certificate Header" className="w-full h-auto block" onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/offer-letter-header.png';
-                  }} />
+                <div className="-mx-[12mm] md:-mx-[15mm] -mt-[12mm] md:-mt-[15mm] mb-6 relative z-10 flex flex-col">
+                  {/* Top Banner Shapes */}
+                  <div className="w-full h-[14px] relative flex items-start">
+                    <div className="w-full h-[7px] bg-[#0084FF] absolute top-0 left-0 z-0"></div>
+                    <div className="h-[14px] w-[25%] bg-[#0084FF] absolute top-0 left-0 z-10" style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}></div>
+                    <div className="h-[14px] w-[8%] bg-[#CDE6FE] absolute top-0 left-[22%] z-20" style={{ clipPath: 'polygon(25% 0, 100% 0, 75% 100%, 0% 100%)' }}></div>
+                  </div>
+
+                  {/* Header Content */}
+                  <div className="flex justify-between items-center px-[12mm] md:px-[15mm] py-4 md:py-6">
+                    {/* Left Logo */}
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <div className="size-12 md:size-14 rounded-[10px] md:rounded-[12px] bg-[#5AA3E6] flex items-center justify-center shadow-sm">
+                        <span className="text-white font-black text-2xl md:text-3xl tracking-tighter leading-none mt-0.5 md:mt-1">EI</span>
+                      </div>
+                      <div className="flex items-center text-[1.8rem] md:text-[2.2rem] tracking-tight leading-none mt-0.5 md:mt-1">
+                        <span className="font-bold text-[#5AA3E6]">Ezy</span>
+                        <span className="font-bold text-slate-900">intern</span>
+                      </div>
+                    </div>
+                    
+                    {/* Right Contact Info */}
+                    <div className="flex flex-col items-end gap-1 md:gap-1.5 text-[9px] md:text-[11px] font-medium text-slate-800">
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span>Arfabad Colony, East Nahar Road, Bajranngpuri, Patna - 800007</span>
+                        <div className="bg-[#0084FF] text-white rounded-full p-[2px] md:p-[2.5px]"><MapPin className="size-[8px] md:size-[10px]" strokeWidth={3} /></div>
+                      </div>
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span>7858967071, 9341143791</span>
+                        <div className="bg-[#0084FF] text-white rounded-full p-[2px] md:p-[2.5px]"><Phone className="size-[8px] md:size-[10px]" strokeWidth={3} /></div>
+                      </div>
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span>infoezyintern@gmail.com</span>
+                        <div className="bg-[#0084FF] text-white rounded-full p-[2px] md:p-[2.5px]"><Mail className="size-[8px] md:size-[10px]" strokeWidth={3} /></div>
+                      </div>
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span>www.ezyintern.com</span>
+                        <div className="bg-[#0084FF] text-white rounded-full p-[2px] md:p-[2.5px]"><Globe className="size-[8px] md:size-[10px]" strokeWidth={3} /></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Bottom Dark Blue Line */}
+                  <div className="mx-[12mm] md:mx-[15mm] border-b-[1.5px] border-[#1E3A8A]"></div>
                 </div>
                 
                 {/* Certificate Title & Text */}
