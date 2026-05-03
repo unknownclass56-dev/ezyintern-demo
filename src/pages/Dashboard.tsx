@@ -29,11 +29,14 @@ const Dashboard = () => {
   const [cert, setCert] = useState<any>(null);
   const [isOfferLetterOpen, setIsOfferLetterOpen] = useState(false);
   const [isCertOpen, setIsCertOpen] = useState(false);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [payment, setPayment] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [systemSettings, setSystemSettings] = useState<any[]>([]);
   const offerLetterRef = useRef<HTMLDivElement>(null);
   const certRef = useRef<HTMLDivElement>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -43,14 +46,15 @@ const Dashboard = () => {
       const uid = impersonateId || session.user.id;
       const isImpersonating = !!impersonateId;
 
-      const [s, r, c, ss, n, a, asub] = await Promise.all([
+      const [s, r, c, ss, n, a, asub, pay] = await Promise.all([
         supabase.from("students").select("*").eq("id", uid).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", session.user.id),
         supabase.from("certificates").select("*").eq("user_id", uid).maybeSingle(),
         supabase.from("system_settings").select("*"),
         supabase.from("notifications").select("*").or(`target_type.eq.all,target_user_id.eq.${uid}`).order("created_at", { ascending: false }).limit(20),
         supabase.from("assignments").select("*").eq("is_active", true).order("created_at", { ascending: false }),
-        supabase.from("assignment_submissions").select("*").eq("student_id", uid)
+        supabase.from("assignment_submissions").select("*").eq("student_id", uid),
+        supabase.from("payment_success").select("*").eq("user_id", uid).maybeSingle()
       ]);
       const roles = r.data || [];
       const ok = roles.some((x: any) => x.role === "admin" || x.role === "super_admin");
@@ -92,6 +96,7 @@ const Dashboard = () => {
 
       setProfile(studentData);
       setCert(c.data);
+      setPayment(pay.data);
       setSystemSettings(ss.data || []);
       setNotifications(n.data || []);
       
@@ -139,6 +144,38 @@ const Dashboard = () => {
       toast.success("Certificate downloaded!");
     } catch (error) {
       toast.error("Download failed");
+    } finally {
+      document.body.removeChild(wrapper);
+      setGenerating(false);
+    }
+  };
+
+  const downloadReceipt = async () => {
+    if (!receiptRef.current) return;
+    setGenerating(true);
+    
+    const wrapper = document.createElement("div");
+    wrapper.style.position = "absolute";
+    wrapper.style.top = "-9999px";
+    wrapper.style.left = "-9999px";
+    wrapper.style.width = "210mm";
+    
+    const clone = receiptRef.current.cloneNode(true) as HTMLElement;
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    try {
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Payment_Receipt_${profile?.full_name?.replace(/\s+/g, "_") || "EzyIntern"}.pdf`);
+      toast.success("Receipt downloaded successfully!");
+    } catch (error) {
+      toast.error("Failed to generate PDF");
     } finally {
       document.body.removeChild(wrapper);
       setGenerating(false);
@@ -427,6 +464,9 @@ const Dashboard = () => {
                 <div className="flex flex-wrap gap-4">
                   <Button variant="default" className="bg-primary hover:bg-primary/90 h-12 px-6 shadow-md gap-2" onClick={() => setIsOfferLetterOpen(true)}>
                     <Download className="size-5" /> Download Offer Letter
+                  </Button>
+                  <Button variant="outline" className="h-12 px-6 shadow-md gap-2 border-primary/20 hover:bg-primary/5 text-primary" onClick={() => setIsReceiptOpen(true)}>
+                    <FileText className="size-5" /> Payment Receipt
                   </Button>
                   {isServiceEnabled('certificates') && (
                     cert ? (
@@ -837,6 +877,147 @@ const Dashboard = () => {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Receipt Dialog */}
+      <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden shadow-2xl border-none">
+          <DialogHeader className="p-6 bg-muted/30 border-b flex flex-row items-center justify-between space-y-0">
+            <div>
+              <DialogTitle className="text-2xl font-bold">Payment Receipt</DialogTitle>
+              <DialogDescription>Official receipt for your enrollment payment</DialogDescription>
+            </div>
+            <Button variant="hero" size="sm" className="gap-2" onClick={downloadReceipt} disabled={generating}>
+              {generating ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              Download PDF
+            </Button>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[75vh] p-10 bg-slate-100">
+            <div className="flex justify-center">
+              <div 
+                ref={receiptRef}
+                className="w-full max-w-[210mm] bg-white shadow-2xl p-[12mm] md:p-[15mm] text-slate-900 font-sans leading-snug min-h-[297mm] flex flex-col relative overflow-hidden"
+                style={{ height: 'auto' }}
+              >
+                {/* Background Watermark */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 mt-32 select-none">
+                  <img src="/logo.png" alt="Watermark" className="w-[85%] max-w-[500px] h-auto object-contain opacity-[0.15] grayscale" crossOrigin="anonymous" />
+                </div>
+
+                {/* Custom Header from Certificate */}
+                <div className="-mx-[12mm] md:-mx-[15mm] -mt-[12mm] md:-mt-[15mm] mb-8 relative z-10 flex flex-col">
+                  {/* Top Banner Shapes */}
+                  <div className="w-full h-[14px] relative flex items-start">
+                    <div className="w-full h-[7px] bg-[#0084FF] absolute top-0 left-0 z-0"></div>
+                    <div className="h-[14px] w-[25%] bg-[#0084FF] absolute top-0 left-0 z-10" style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}></div>
+                    <div className="h-[14px] w-[8%] bg-[#CDE6FE] absolute top-0 left-[22%] z-20" style={{ clipPath: 'polygon(25% 0, 100% 0, 75% 100%, 0% 100%)' }}></div>
+                  </div>
+
+                  {/* Header Content */}
+                  <div className="flex justify-between items-center px-[12mm] md:px-[15mm] py-4 md:py-6">
+                    {/* Left Logo */}
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <div className="size-12 md:size-14 rounded-[10px] md:rounded-[12px] bg-[#5AA3E6] flex items-center justify-center shadow-sm">
+                        <span className="text-white font-black text-2xl md:text-3xl tracking-tighter leading-none mt-0.5 md:mt-1">EI</span>
+                      </div>
+                      <div className="flex items-center text-[1.8rem] md:text-[2.2rem] tracking-tight leading-none mt-0.5 md:mt-1">
+                        <span className="font-bold text-[#5AA3E6]">Ezy</span>
+                        <span className="font-bold text-slate-900">intern</span>
+                      </div>
+                    </div>
+                    
+                    {/* Right Contact Info */}
+                    <div className="flex flex-col items-end gap-1 md:gap-1.5 text-[9px] md:text-[11px] font-medium text-slate-800">
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span>Arfabad Colony, East Nahar Road, Bajranngpuri, Patna - 800007</span>
+                        <div className="bg-[#0084FF] text-white rounded-full p-[2px] md:p-[2.5px]"><MapPin className="size-[8px] md:size-[10px]" strokeWidth={3} /></div>
+                      </div>
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span>7858967071, 9341143791</span>
+                        <div className="bg-[#0084FF] text-white rounded-full p-[2px] md:p-[2.5px]"><Phone className="size-[8px] md:size-[10px]" strokeWidth={3} /></div>
+                      </div>
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span>infoezyintern@gmail.com</span>
+                        <div className="bg-[#0084FF] text-white rounded-full p-[2px] md:p-[2.5px]"><Mail className="size-[8px] md:size-[10px]" strokeWidth={3} /></div>
+                      </div>
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <span>www.ezyintern.com</span>
+                        <div className="bg-[#0084FF] text-white rounded-full p-[2px] md:p-[2.5px]"><Globe className="size-[8px] md:size-[10px]" strokeWidth={3} /></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Bottom Dark Blue Line */}
+                  <div className="mx-[12mm] md:mx-[15mm] border-b-[1.5px] border-[#1E3A8A]"></div>
+                </div>
+
+                {/* Receipt Content */}
+                <div className="relative z-10 flex-1 text-slate-800">
+                  <div className="text-center mb-10">
+                    <h1 className="text-3xl font-black tracking-tight text-[#1E3A8A] uppercase mb-2">Payment Receipt</h1>
+                    <p className="text-slate-500 font-medium">Thank you for your payment</p>
+                  </div>
+
+                  <div className="flex justify-between items-start mb-10 pb-8 border-b border-slate-200">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Billed To</h3>
+                      <p className="font-bold text-xl text-slate-900 mb-1">{profile?.full_name}</p>
+                      <p className="text-slate-600">{profile?.email}</p>
+                      <p className="text-slate-600">{profile?.phone_number}</p>
+                    </div>
+                    <div className="text-right">
+                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Receipt Details</h3>
+                      <p className="text-slate-700 mb-1"><span className="font-semibold w-24 inline-block text-left">Receipt No:</span> <span className="font-mono font-bold text-slate-900">{payment?.payment_id}</span></p>
+                      <p className="text-slate-700 mb-1"><span className="font-semibold w-24 inline-block text-left">Date:</span> <span className="font-medium text-slate-900">{new Date(payment?.created_at || new Date()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span></p>
+                      <p className="text-slate-700"><span className="font-semibold w-24 inline-block text-left">Status:</span> <span className="text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded text-sm">PAID</span></p>
+                    </div>
+                  </div>
+
+                  <div className="mb-10">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b-2 border-slate-800">
+                          <th className="py-3 font-bold text-slate-900 uppercase tracking-wider text-sm">Description</th>
+                          <th className="py-3 font-bold text-slate-900 uppercase tracking-wider text-sm text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-slate-200">
+                          <td className="py-5">
+                            <p className="font-bold text-slate-800 text-lg">Internship Program Enrollment</p>
+                            <p className="text-slate-500 text-sm mt-1">{profile?.internship_domain || "General"} Domain</p>
+                            {profile?.registration_id && <p className="text-slate-500 text-sm mt-0.5">Reg ID: {profile?.registration_id}</p>}
+                          </td>
+                          <td className="py-5 text-right font-medium text-lg">₹{(payment?.amount_paise || 0) / 100}.00</td>
+                        </tr>
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td className="py-4 text-right font-bold text-slate-700">Subtotal</td>
+                          <td className="py-4 text-right font-medium">₹{(payment?.amount_paise || 0) / 100}.00</td>
+                        </tr>
+                        <tr className="border-b-2 border-slate-800">
+                          <td className="py-2 text-right font-bold text-slate-700">Taxes (Inclusive)</td>
+                          <td className="py-2 text-right font-medium">₹0.00</td>
+                        </tr>
+                        <tr>
+                          <td className="py-6 text-right font-black text-2xl text-[#1E3A8A]">Total Amount</td>
+                          <td className="py-6 text-right font-black text-2xl text-[#1E3A8A]">₹{(payment?.amount_paise || 0) / 100}.00</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <div className="mt-20 pt-8 border-t border-slate-200 text-center">
+                    <p className="text-sm font-bold text-slate-900 mb-1">EzyIntern Educational Services</p>
+                    <p className="text-xs text-slate-500">This is a computer-generated receipt and does not require a physical signature.</p>
                   </div>
                 </div>
               </div>
