@@ -38,6 +38,12 @@ const Login = () => {
   const [resetOtp, setResetOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  
+  // Login OTP State (2FA for students)
+  const [showLoginOtpDialog, setShowLoginOtpDialog] = useState(false);
+  const [loginOtp, setLoginOtp] = useState("");
+  const [expectedLoginOtp, setExpectedLoginOtp] = useState("");
+  const [tempUserData, setTempUserData] = useState<any>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,13 +58,47 @@ const Login = () => {
       toast.error(error.message);
       return;
     }
-    toast.success("Welcome back!");
     
     // Check roles after login
     const { data: user } = await supabase.auth.getUser();
     if (user.user) {
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.user.id);
       const rolesList = (roles || []).map((r: any) => r.role);
+      
+      // If student, trigger 2FA
+      if (rolesList.includes("student") && !rolesList.includes("admin") && !rolesList.includes("super_admin")) {
+        setLoading(true);
+        try {
+          const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+          setExpectedLoginOtp(generatedOtp);
+          setTempUserData(user.user);
+          
+          const response = await fetch('/api/send-mail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'login_otp',
+              otp: generatedOtp,
+              to: user.user.email
+            })
+          });
+          
+          const result = await response.json();
+          if (!result.success) throw new Error(result.message || "Failed to send verification code");
+          
+          toast.success("Verification code sent to your email!");
+          setShowLoginOtpDialog(true);
+          return; // Don't navigate yet
+        } catch (err: any) {
+          toast.error(err.message);
+          await supabase.auth.signOut(); // Sign out if OTP fails to send
+          return;
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      toast.success("Welcome back!");
       if (rolesList.includes("super_admin")) {
         navigate("/super-admin");
         return;
@@ -70,6 +110,16 @@ const Login = () => {
     }
     
     navigate("/dashboard");
+  };
+
+  const handleVerifyLoginOtp = () => {
+    if (loginOtp === expectedLoginOtp) {
+      toast.success("Identity verified! Logging in...");
+      setShowLoginOtpDialog(false);
+      navigate("/dashboard");
+    } else {
+      toast.error("Invalid verification code. Please try again.");
+    }
   };
 
   const handleSendResetOtp = async (e?: React.FormEvent) => {
@@ -315,6 +365,51 @@ const Login = () => {
                 </Button>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Login OTP Verification Dialog (2FA for Students) */}
+      <Dialog open={showLoginOtpDialog} onOpenChange={(open) => {
+        if (!open) {
+          supabase.auth.signOut(); // Sign out if they close the dialog without verifying
+          setShowLoginOtpDialog(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="size-5 text-primary" />
+              Identity Verification
+            </DialogTitle>
+            <DialogDescription>
+              We've sent a 6-digit verification code to your registered email address. Please enter it below to complete your login.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6 flex flex-col items-center justify-center space-y-6">
+            <InputOTP maxLength={6} value={loginOtp} onChange={setLoginOtp}>
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+                <InputOTPSlot index={4} />
+                <InputOTPSlot index={5} />
+              </InputOTPGroup>
+            </InputOTP>
+
+            <Button 
+              className="w-full h-12 text-base font-bold shadow-glow" 
+              onClick={handleVerifyLoginOtp} 
+              disabled={loginOtp.length < 6}
+            >
+              Verify & Enter Dashboard
+            </Button>
+            
+            <p className="text-xs text-center text-muted-foreground">
+              Didn't receive the code? Check your spam folder or try again.
+            </p>
           </div>
         </DialogContent>
       </Dialog>

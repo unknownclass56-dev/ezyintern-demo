@@ -55,16 +55,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           <p><strong>Message:</strong> ${message || 'No content'}</p>
         </div>
       `;
-    } else if (action === 'send_otp') {
-      mailOptions.subject = 'Your Password Reset OTP';
+    } else if (action === 'send_otp' || action === 'login_otp') {
+      const isLogin = action === 'login_otp';
+      mailOptions.subject = isLogin ? 'Your Login Verification Code' : 'Your Password Reset OTP';
       mailOptions.html = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
           <div style="background-color: #0084FF; padding: 24px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Password Reset</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">${isLogin ? 'Login Verification' : 'Password Reset'}</h1>
           </div>
           <div style="padding: 32px; text-align: center; color: #1e293b;">
             <p style="font-size: 16px; margin-bottom: 24px;">Hello,</p>
-            <p style="font-size: 16px; line-height: 1.5;">You requested to reset your password. Use the 6-digit code below to proceed:</p>
+            <p style="font-size: 16px; line-height: 1.5;">${isLogin ? 'Use the following code to complete your login:' : 'You requested to reset your password. Use the 6-digit code below to proceed:'}</p>
             <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 16px; margin: 32px 0; display: inline-block;">
               <span style="font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #0084FF; font-family: monospace;">${otp}</span>
             </div>
@@ -74,14 +75,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else if (action === 'registration_confirmation') {
       mailOptions.subject = `✅ Registration Confirmed — EzyIntern (ID: ${data.registrationId})`;
       mailOptions.html = `
-        <div style="font-family: sans-serif; padding: 32px; border: 1px solid #eee; border-radius: 16px;">
-          <h1 style="color: #4F46E5;">Welcome to EzyIntern!</h1>
-          <p>Hello ${data.fullName}, your registration is confirmed.</p>
-          <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0;">
-            <p><strong>Registration ID:</strong> ${data.registrationId}</p>
-            <p><strong>Domain:</strong> ${data.course}</p>
+        <div style="font-family: sans-serif; padding: 32px; border: 1px solid #e2e8f0; border-radius: 20px; max-width: 600px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #4F46E5; margin-bottom: 8px;">Welcome to EzyIntern! 🎓</h1>
+            <p style="color: #64748b; font-size: 16px;">Your internship journey begins today.</p>
           </div>
-          <a href="https://www.ezyintern.com/login" style="display:inline-block; padding: 12px 24px; background: #4F46E5; color: white; text-decoration: none; border-radius: 8px;">Access Portal</a>
+          
+          <p>Hello <strong>${data.fullName}</strong>,</p>
+          <p>Congratulations! You have successfully registered for the EzyIntern programme. Your student account is now active.</p>
+          
+          <div style="background: #f8fafc; padding: 24px; border-radius: 16px; margin: 24px 0; border: 1px solid #e2e8f0;">
+            <h3 style="margin-top: 0; color: #1e293b; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">🔐 Your Login Credentials</h3>
+            <p style="margin: 8px 0;"><strong>Registration ID:</strong> ${data.registrationId}</p>
+            <p style="margin: 8px 0;"><strong>Email:</strong> ${data.email}</p>
+            <p style="margin: 8px 0;"><strong>Password:</strong> ${data.password || 'As set during registration'}</p>
+            <p style="margin: 8px 0;"><strong>Domain:</strong> ${data.course}</p>
+          </div>
+
+          <div style="background: #eff6ff; padding: 20px; border-radius: 12px; margin-bottom: 24px; border-left: 4px solid #3b82f6;">
+            <p style="margin: 0; color: #1e3a8a; font-weight: 600;">📝 Next Step:</p>
+            <p style="margin: 4px 0 0; color: #1e40af; font-size: 14px;">Please login to your dashboard to download your <strong>Offer Letter</strong> and access your internship resources.</p>
+          </div>
+          
+          <div style="text-align: center;">
+            <a href="https://www.ezyintern.com/login" style="display:inline-block; padding: 16px 32px; background: linear-gradient(135deg, #4F46E5, #7C3AED); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">🚀 Access Your Dashboard</a>
+          </div>
+
+          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin-top: 32px;">
+            If you have any questions, please reach out to our support team.<br/>
+            © 2026 EzyIntern. All rights reserved.
+          </p>
         </div>
       `;
     } else if (action === 'certificate_generated') {

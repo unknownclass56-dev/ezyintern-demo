@@ -357,6 +357,7 @@ const Register = () => {
         course,
         session,
         semester: classSem,
+        password, // Pass password to welcome email
       });
 
       // Keep profiles sync for auth consistency
