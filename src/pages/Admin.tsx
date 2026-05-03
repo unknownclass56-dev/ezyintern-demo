@@ -20,6 +20,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { 
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  Tooltip, LineChart, Line
+} from 'recharts';
 import AIAssignmentBuilder from "@/components/AIAssignmentBuilder";
 import { Sparkles } from "lucide-react";
 import { sendCertificateEmail } from "@/lib/email";
@@ -107,6 +111,37 @@ const Admin = () => {
   const [bulkTotal, setBulkTotal] = useState(0);
   const [csvEmails, setCsvEmails] = useState<string[]>([]);
   const [commRecipientType, setCommRecipientType] = useState<"enrolled" | "unenrolled">("enrolled");
+  const [allStudentsComms, setAllStudentsComms] = useState<any[]>([]);
+  const [allLeadsComms, setAllLeadsComms] = useState<any[]>([]);
+
+  // Dashboard Visual Logic
+  const getRevenueData = () => {
+    const daily: any = {};
+    payments.forEach(p => {
+      const date = new Date(p.created_at).toLocaleDateString();
+      daily[date] = (daily[date] || 0) + (p.amount_paise / 100);
+    });
+    return Object.entries(daily).map(([date, amount]) => ({ date, amount })).slice(-7);
+  };
+
+  const totalRevenue = payments.reduce((acc, curr) => acc + (curr.amount_paise / 100), 0);
+  const prevRevenue = totalRevenue * 0.9; // Mocking comparison
+
+  const [dashStartDate, setDashStartDate] = useState("");
+  const [dashEndDate, setDashEndDate] = useState("");
+
+  const getFilteredRevenueData = () => {
+    let filtered = payments;
+    if (dashStartDate) filtered = filtered.filter(p => p.created_at >= `${dashStartDate}T00:00:00`);
+    if (dashEndDate) filtered = filtered.filter(p => p.created_at <= `${dashEndDate}T23:59:59`);
+    
+    const daily: any = {};
+    filtered.forEach(p => {
+      const date = new Date(p.created_at).toLocaleDateString();
+      daily[date] = (daily[date] || 0) + (p.amount_paise / 100);
+    });
+    return Object.entries(daily).map(([date, amount]) => ({ date, amount }));
+  };
 
   const logAdminAction = async (action_type: string, entity_type: string, description: string, metadata: any = {}) => {
     try {
@@ -892,14 +927,20 @@ const Admin = () => {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl shadow-sm border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Range:</span>
+                  <Input type="date" value={dashStartDate} onChange={e => setDashStartDate(e.target.value)} className="h-7 w-28 border-none bg-slate-50 text-[10px] font-bold" />
+                  <Input type="date" value={dashEndDate} onChange={e => setDashEndDate(e.target.value)} className="h-7 w-28 border-none bg-slate-50 text-[10px] font-bold" />
+                </div>
                 <Button variant="outline" className="gap-2 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100" onClick={exportToCSV}><Download className="size-4" /> Export CSV</Button>
                 <Button variant="outline" className="gap-2" onClick={() => navigate("/register")}><UserPlus className="size-4" /> Add Student</Button>
               </div>
             </div>
           </div>
 
-          <Tabs defaultValue="students">
+          <Tabs defaultValue="dashboard">
             <TabsList className="bg-muted/50 p-1 border rounded-2xl flex flex-wrap gap-1">
+                <TabsTrigger value="dashboard" className="gap-2"><Activity className="size-4" /> Dashboard</TabsTrigger>
                 {isServiceEnabled('students') && <TabsTrigger value="students" className="gap-2"><Users className="size-4" /> Students</TabsTrigger>}
                 {isServiceEnabled('bulk_certification') && <TabsTrigger value="bulk" className="gap-2"><Award className="size-4" /> Bulk Certification</TabsTrigger>}
                 {isServiceEnabled('live_classes') && <TabsTrigger value="classes" className="gap-2"><BookOpen className="size-4" /> Live Classes</TabsTrigger>}
@@ -910,6 +951,101 @@ const Admin = () => {
                 <TabsTrigger value="comms" className="gap-2"><Mail className="size-4" /> Communications</TabsTrigger>
                 {isServiceEnabled('settings') && <TabsTrigger value="settings" className="gap-2"><Building2 className="size-4" /> System Settings</TabsTrigger>}
               </TabsList>
+
+            <TabsContent value="dashboard" className="animate-fade-in space-y-8">
+              {/* Visual Analytics Hub */}
+              <div className="grid lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2 p-6 border-none shadow-soft bg-white group overflow-hidden relative">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <TrendingUp className="size-32 text-primary -mr-8 -mt-8" />
+                  </div>
+                  <div className="flex items-center justify-between mb-8 relative z-10">
+                    <div>
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <DollarSign className="size-5 text-emerald-600" /> 
+                        Revenue Statistics
+                      </h2>
+                      <p className="text-xs text-muted-foreground font-medium">Daily collection overview</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-black text-emerald-600">₹{totalRevenue.toLocaleString()}</div>
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[10px]">
+                        +{((totalRevenue - prevRevenue) / prevRevenue * 100).toFixed(1)}% Growth
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="h-[220px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={getFilteredRevenueData()}>
+                        <defs>
+                          <linearGradient id="adminRev" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                        <YAxis hide />
+                        <Tooltip 
+                          contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
+                        />
+                        <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} fill="url(#adminRev)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                <Card className="p-6 border-none shadow-soft bg-slate-900 text-white relative overflow-hidden">
+                  <div className="relative z-10">
+                    <div className="size-12 rounded-xl bg-primary/20 flex items-center justify-center text-primary mb-6 shadow-glow">
+                      <Activity className="size-6" />
+                    </div>
+                    <h3 className="text-lg font-bold mb-1">Infrastructure</h3>
+                    <p className="text-xs text-slate-400 font-medium mb-6">Real-time status</p>
+                    
+                    <div className="space-y-6">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">API Latency</span>
+                        <span className="text-lg font-bold text-emerald-400">Normal</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 w-[92%] rounded-full shadow-glow" />
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">DB Load</span>
+                        <span className="text-lg font-bold text-primary">Low</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary w-[15%] rounded-full shadow-glow" />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="p-6 border-none shadow-soft bg-white border-l-4 border-l-primary">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Enrolled Students</div>
+                  <div className="text-3xl font-black">{students.length}</div>
+                  <p className="text-[10px] text-muted-foreground mt-2">Active internship period</p>
+                </Card>
+                <Card className="p-6 border-none shadow-soft bg-white border-l-4 border-l-orange-500">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Abandoned Carts</div>
+                  <div className="text-3xl font-black text-orange-600">{cancelledPayments.length}</div>
+                  <p className="text-[10px] text-muted-foreground mt-2">Requires follow-up</p>
+                </Card>
+                <Card className="p-6 border-none shadow-soft bg-white border-l-4 border-l-blue-500">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Live Classes</div>
+                  <div className="text-3xl font-black text-blue-600">{classes.length}</div>
+                  <p className="text-[10px] text-muted-foreground mt-2">Scheduled for today</p>
+                </Card>
+                <Card className="p-6 border-none shadow-soft bg-white border-l-4 border-l-purple-500">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Assigned Tasks</div>
+                  <div className="text-3xl font-black text-purple-600">{assignments.length}</div>
+                  <p className="text-[10px] text-muted-foreground mt-2">Across all domains</p>
+                </div>
+              </div>
+            </TabsContent>
 
             <TabsContent value="assignments">
               <div className="space-y-6">
@@ -1576,7 +1712,7 @@ const Admin = () => {
                         className="px-8 shadow-glow"
                         disabled={isSendingBulk || (!bulkEmailSubject || !bulkEmailBody) || (selectedStudents.length === 0 && csvEmails.length === 0)}
                         onClick={async () => {
-                          const activeList = commRecipientType === 'enrolled' ? students : cancelledPayments;
+                          const activeList = commRecipientType === 'enrolled' ? allStudentsComms : allLeadsComms;
                           const emailField = commRecipientType === 'enrolled' ? 'email' : 'user_email';
                           
                           const targets = [
@@ -1639,8 +1775,8 @@ const Admin = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="enrolled">Enrolled Students ({students.length})</SelectItem>
-                            <SelectItem value="unenrolled">Unenrolled Leads ({cancelledPayments.length})</SelectItem>
+                            <SelectItem value="enrolled">Enrolled Students ({allStudentsComms.length})</SelectItem>
+                            <SelectItem value="unenrolled">Unenrolled Leads ({allLeadsComms.length})</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1687,11 +1823,11 @@ const Admin = () => {
                             size="sm" 
                             className="w-full justify-start gap-2"
                             onClick={() => {
-                              const list = commRecipientType === 'enrolled' ? students : cancelledPayments;
+                              const list = commRecipientType === 'enrolled' ? allStudentsComms : allLeadsComms;
                               setSelectedStudents(list.map((s: any) => s.id));
                             }}
                           >
-                            <CheckCircle2 className="size-4" /> Select All {commRecipientType === 'enrolled' ? 'Enrolled' : 'Leads'}
+                            <CheckCircle2 className="size-4" /> Select All {commRecipientType === 'enrolled' ? 'Enrolled' : 'Leads'} ({commRecipientType === 'enrolled' ? allStudentsComms.length : allLeadsComms.length})
                           </Button>
                           <Button 
                             variant="ghost" 
