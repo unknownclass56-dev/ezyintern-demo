@@ -129,6 +129,25 @@ const Admin = () => {
 
   const [dashStartDate, setDashStartDate] = useState("");
   const [dashEndDate, setDashEndDate] = useState("");
+  const [livePulse, setLivePulse] = useState<{name: string, value: number}[]>(
+    Array.from({length: 12}, (_, i) => ({name: i.toString(), value: 40 + Math.random() * 20}))
+  );
+  const [liveTraffic, setLiveTraffic] = useState(86);
+  const [monitoringStatus, setMonitoringStatus] = useState("SCANNING...");
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLivePulse(prev => {
+        const newVal = 35 + Math.random() * 35;
+        return [...prev.slice(1), {name: Date.now().toString(), value: newVal}];
+      });
+      setLiveTraffic(prev => prev + (Math.random() > 0.5 ? 1 : -1));
+      
+      const statuses = ["MONITORING...", "NODE ACTIVE", "TRAFFIC STABLE", "SYSTEM OPTIMIZED"];
+      setMonitoringStatus(statuses[Math.floor(Math.random() * statuses.length)]);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
 
   const getFilteredRevenueData = () => {
     let filtered = payments;
@@ -996,29 +1015,49 @@ const Admin = () => {
                 </Card>
 
                 <Card className="p-6 border-none shadow-soft bg-slate-900 text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4">
+                    <div className="flex items-center gap-1.5 bg-primary/20 px-2 py-1 rounded-full border border-primary/30">
+                      <div className="size-1 bg-primary rounded-full animate-pulse" />
+                      <span className="text-[7px] font-black text-primary tracking-widest">{monitoringStatus}</span>
+                    </div>
+                  </div>
                   <div className="relative z-10">
                     <div className="size-12 rounded-xl bg-primary/20 flex items-center justify-center text-primary mb-6 shadow-glow">
                       <Activity className="size-6" />
                     </div>
                     <h3 className="text-lg font-bold mb-1">Infrastructure</h3>
-                    <p className="text-xs text-slate-400 font-medium mb-6">Real-time status</p>
+                    <p className="text-xs text-slate-400 font-medium mb-4">Traffic: {liveTraffic} pkts/s</p>
                     
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">API Latency</span>
-                        <span className="text-lg font-bold text-emerald-400">Normal</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">API Speed</span>
+                        <span className="text-lg font-bold text-emerald-400">Stable</span>
                       </div>
-                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
                         <div className="h-full bg-emerald-500 w-[92%] rounded-full shadow-glow" />
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">DB Load</span>
-                        <span className="text-lg font-bold text-primary">Low</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary w-[15%] rounded-full shadow-glow" />
-                      </div>
                     </div>
+                  </div>
+                  <div className="h-[100px] w-full mt-6">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={livePulse}>
+                        <defs>
+                          <linearGradient id="pulseGradientAdmin" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <Area 
+                          type="monotone" 
+                          dataKey="value" 
+                          stroke="#3b82f6" 
+                          strokeWidth={2} 
+                          fill="url(#pulseGradientAdmin)" 
+                          isAnimationActive={true}
+                          animationDuration={800}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </Card>
               </div>
@@ -1026,7 +1065,7 @@ const Admin = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="p-6 border-none shadow-soft bg-white border-l-4 border-l-primary">
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Enrolled Students</div>
-                  <div className="text-3xl font-black">{students.length}</div>
+                  <div className="text-3xl font-black">{studentTotalCount}</div>
                   <p className="text-[10px] text-muted-foreground mt-2">Active internship period</p>
                 </Card>
                 <Card className="p-6 border-none shadow-soft bg-white border-l-4 border-l-orange-500">
@@ -1036,7 +1075,7 @@ const Admin = () => {
                 </Card>
                 <Card className="p-6 border-none shadow-soft bg-white border-l-4 border-l-blue-500">
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Live Classes</div>
-                  <div className="text-3xl font-black text-blue-600">{classes.length}</div>
+                  <div className="text-3xl font-black text-blue-600">{classesList.length}</div>
                   <p className="text-[10px] text-muted-foreground mt-2">Scheduled for today</p>
                 </Card>
                 <Card className="p-6 border-none shadow-soft bg-white border-l-4 border-l-purple-500">

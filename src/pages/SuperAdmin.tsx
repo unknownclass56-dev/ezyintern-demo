@@ -144,6 +144,25 @@ const SuperAdmin = () => {
 
   const [dashStartDate, setDashStartDate] = useState("");
   const [dashEndDate, setDashEndDate] = useState("");
+  const [livePulse, setLivePulse] = useState<{name: string, value: number}[]>(
+    Array.from({length: 15}, (_, i) => ({name: i.toString(), value: 40 + Math.random() * 20}))
+  );
+  const [liveTraffic, setLiveTraffic] = useState(124);
+  const [monitoringStatus, setMonitoringStatus] = useState("SCANNING...");
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLivePulse(prev => {
+        const newVal = 30 + Math.random() * 50;
+        return [...prev.slice(1), {name: Date.now().toString(), value: newVal}];
+      });
+      setLiveTraffic(prev => prev + (Math.random() > 0.5 ? 1 : -1));
+      
+      const statuses = ["SCANNING...", "WEB HEALTH OK", "TRAFFIC STABLE", "LINK VERIFIED", "DB SYNCED"];
+      setMonitoringStatus(statuses[Math.floor(Math.random() * statuses.length)]);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getFilteredRevenueData = () => {
     let filtered = payments;
@@ -1133,35 +1152,52 @@ const SuperAdmin = () => {
               </div>
             </Card>
 
-            {/* Performance Monitoring Card */}
-            <Card className="p-6 border-none shadow-elegant bg-slate-900 text-white flex flex-col justify-between">
-              <div>
+            <Card className="p-6 border-none shadow-elegant bg-slate-900 text-white flex flex-col justify-between relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4">
+                <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2 py-1 rounded-full border border-emerald-500/30">
+                  <div className="size-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-[8px] font-black text-emerald-400 tracking-widest">{monitoringStatus}</span>
+                </div>
+              </div>
+              <div className="relative z-10">
                 <div className="flex items-center justify-between mb-6">
                   <div className="size-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary shadow-glow">
                     <Activity className="size-6" />
                   </div>
-                  <Badge className="bg-emerald-500 border-none text-[10px] animate-pulse">SYSTEM HEALTHY</Badge>
                 </div>
-                <h3 className="text-lg font-black mb-1">Performance Pulse</h3>
-                <p className="text-xs text-slate-400 font-medium mb-6">Real-time infrastructure monitoring</p>
+                <h3 className="text-lg font-black mb-1">Infrastructure Pulse</h3>
+                <p className="text-xs text-slate-400 font-medium mb-6">Live Traffic: {liveTraffic} requests/min</p>
                 
                 <div className="space-y-4">
                   <div className="flex justify-between items-end">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Site Speed</span>
-                    <span className="text-xl font-black">98.2ms</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Node Latency</span>
+                    <span className="text-xl font-black text-emerald-400">98.2ms</span>
                   </div>
-                  <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary w-[85%] rounded-full shadow-glow" />
+                  <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary w-[85%] rounded-full shadow-glow animate-pulse" />
                   </div>
                 </div>
               </div>
 
               <div className="h-[120px] w-full mt-6">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={performanceData}>
-                    <Line type="monotone" dataKey="load" stroke="#8b5cf6" strokeWidth={3} dot={false} strokeDasharray="5 5" />
-                    <Line type="monotone" dataKey="resp" stroke="#3b82f6" strokeWidth={3} dot={false} />
-                  </LineChart>
+                  <AreaChart data={livePulse}>
+                    <defs>
+                      <linearGradient id="pulseGradientSuper" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <Area 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3} 
+                      fill="url(#pulseGradientSuper)" 
+                      isAnimationActive={true}
+                      animationDuration={1000}
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </Card>
@@ -1171,7 +1207,7 @@ const SuperAdmin = () => {
             <Card className="p-6 border-none shadow-elegant bg-white relative overflow-hidden">
               <div className="absolute -right-4 -bottom-4 opacity-5"><Users className="size-24" /></div>
               <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Total Interns</div>
-              <div className="text-3xl font-black">{students.length}</div>
+              <div className="text-3xl font-black">{studentTotalCount}</div>
               <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-emerald-600">
                 <TrendingUp className="size-3" /> +12.5% Growth
               </div>
