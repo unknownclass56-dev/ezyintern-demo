@@ -1043,7 +1043,7 @@ const Admin = () => {
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Assigned Tasks</div>
                   <div className="text-3xl font-black text-purple-600">{assignments.length}</div>
                   <p className="text-[10px] text-muted-foreground mt-2">Across all domains</p>
-                </div>
+                </Card>
               </div>
             </TabsContent>
 
